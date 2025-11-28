@@ -149,7 +149,7 @@ for sample in samples:
     #         print(f"Error with file {file_name} [job_exit_code = {exit_code}] - skipping")
     #         continue
 
-    path_file = "root://cms-xrd-global.cern.ch/"+folder.replace("davs://stwebdav.pi.infn.it:8443/cms", "")
+    path_file = "root://cms-xrd-global.cern.ch/"+folder.replace("davs://webdav.recas.ba.infn.it:8443/cms", "")
     ntot = []
     out_strings = []
     for f in tqdm(files_strings): 

@@ -1,7 +1,7 @@
 import os
 import optparse
 from checkjobs import get_file_sizes, find_folder, summarize_job_status
-from PhysicsTools.NanoAODTools.postprocessing.samples.samples import *
+from PhysicsTools.NanoAODTools.postprocessing.samples.samples_with_PF import *
 import pandas as pd
 
 usage           = 'python3 job_status.py -d dataset_name'
