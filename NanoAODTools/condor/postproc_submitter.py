@@ -4,12 +4,13 @@ import sys
 import time
 from PhysicsTools.NanoAODTools.postprocessing.samples.samples_with_PF import *
 from PhysicsTools.NanoAODTools.postprocessing.get_file_fromdas import *
-from checkjobs import get_file_sizes, find_folder
+from checkjobs import get_file_sizes, find_folder, check_errors_fromcondor
 from config import models # import machine learning models dictionary from config.py
 
 usage = 'python3 postproc_submitter.py -d dataset_name'
 parser = optparse.OptionParser(usage)
 parser.add_option('-d', '--dat', dest='dat', type=str, default = '', help='Please enter a dataset name')
+parser.add_option('--tier', dest='tier', type=str, default = 'pisa', help='Please enter location where to write the output file (tier pisa or bari)')
 parser.add_option('--syst', dest='syst', action='store_true', default=False, help='calculate jerc')
 parser.add_option('--dryrun', dest='debug', action='store_true', default=False, help='dryrun')
 parser.add_option('--trota2d', dest='trota2d', action='store_true', default=False, help='to use trota 2d as tagger')
@@ -17,10 +18,9 @@ parser.add_option('--trota2d', dest='trota2d', action='store_true', default=Fals
 parser.add_option('-s', '--submit', dest='submit', action='store_true', default=False, help='submit jobs')
 parser.add_option('-r', '--resubmit', dest='resubmit', action='store_true', default=False, help='resubmit failed jobs')
 parser.add_option('--status', dest='status', action='store_true', default=False, help='check jobs status')
+parser.add_option('--delete', dest='delete_files', action='store_true', default=False, help='delete files from tier for jobs with davix errors during resubmission')
 (opt, args) = parser.parse_args()
 debug = opt.debug 
-# where_to_write = opt.write
-where_to_write = "tier"
 submit = opt.submit
 resubmit = opt.resubmit
 status = opt.status
@@ -28,6 +28,16 @@ calcualte_systematics = opt.syst
 trota_2d =  opt.trota2d
 
 
+where_to_write = opt.tier
+delete_files = opt.delete_files
+
+if where_to_write.lower() =='pisa':
+    redirector = "davs://stwebdav.pi.infn.it:8443/cms"
+elif where_to_write.lower() =='bari':
+    redirector = "davs://webdav.recas.ba.infn.it:8443/cms"
+else:
+    print("Please select a valid tier (pisa or bari) OTHERWISE add the correct redirector in the code")
+    exit()
 
 #Insert here your uid... you can see it typing echo $uid
 username = str(os.environ.get('USER'))
@@ -53,16 +63,9 @@ print("Launching crab script for dataset: ", opt.dat)
 
 # davs://webdav.recas.ba.infn.it:8443/cms/store/user/apuglia/
 if submit:
-    if where_to_write == 'tier':
-        print("\nRemote folder name (tier): ", remote_folder_name)
-        if not debug: os.popen("davix-mkdir davs://webdav.recas.ba.infn.it:8443/cms/store/user/{}/{}/ -E /tmp/x509up_u{} --capath /cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/".format(username, remote_folder_name, str(uid)))
-        print("          davs://webdav.recas.ba.infn.it:8443/cms/store/user/{}/{} CREATED".format(username, remote_folder_name))
-
-    elif where_to_write == 'eos':
-        print("Remote folder name (eos): ", remote_folder_name)
-        if not os.path.exists("/eos/home-l/lfavilla/xAnimo/"+remote_folder_name):
-            os.makedirs("/eos/home-l/lfavilla/xAnimo/"+remote_folder_name)
-        print("root://eosuser.cern.ch//eos/user/l/lfavilla/xAnimo/{} created".format(remote_folder_name))
+    print("\nRemote folder name (tier): ", remote_folder_name)
+    if not debug: os.popen("davix-mkdir {}/store/user/{}/{}/ -E /tmp/x509up_u{} --capath /cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/".format(redirector, username, remote_folder_name, str(uid)))
+    print("          {}/store/user/{}/{} CREATED".format(redirector, username, remote_folder_name))
 
 def write_crab_script(sample, file, modules, run_folder, calcualte_systematics, year, debug):
     f = open(run_folder+"/crab_script.py", "w")
@@ -173,10 +176,7 @@ def runner_writer(folder, i, remote_folder_name, sample_folder, launchtime, outf
     f.write("pwd\n")
     f.write("hadd -f tree_hadd_"+str(i)+".root tree.root hist.root\n")
     f.write("pwd\n")
-    if where_to_write == 'eos':
-        f.write("mv tree_hadd_{}.root /eos/home-l/lfavilla/xAnimo/{}/{}/{}/.\n".format(str(i), remote_folder_name, sample_folder, launchtime))
-    elif where_to_write == 'tier':
-        f.write("davix-put tree_hadd_{}.root davs://webdav.recas.ba.infn.it:8443/cms/store/user/{}/{}/{}/{}/tree_hadd_{}.root -E $1 --capath /cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/\n".format(str(i), username, remote_folder_name, sample_folder, launchtime, str(i)))
+    f.write("davix-put tree_hadd_{}.root {}/store/user/{}/{}/{}/{}/tree_hadd_{}.root -E $1 --capath /cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/\n".format(str(i), redirector, username, remote_folder_name, sample_folder, launchtime, str(i)))
     f.close()
 
 dataset_to_run = opt.dat
@@ -199,7 +199,7 @@ elif dataset_to_run in sample_dict.keys():
         samples = [sample_dict[dataset_to_run]]
         print('dataset is: ' , sample_dict[dataset_to_run].dataset)
 
-running_folder = "/afs/cern.ch/"+workdir+"/"+inituser+"/"+username+"/TprimeAnalysis/NanoAODTools/condor/tmp"
+running_folder = os.environ.get('PWD')+"/tmp/"
 if not os.path.exists(running_folder):
     os.makedirs(running_folder)
  
@@ -218,32 +218,24 @@ if submit:
         if not os.path.exists(running_subfolder+"/condor/log"):
             os.makedirs(running_subfolder+"/condor/log")
 
-        sample_folder = sample.label    
-        if where_to_write == 'tier':
-            if not debug: 
-                command1 = os.popen("davix-mkdir davs://webdav.recas.ba.infn.it:8443/cms/store/user/{}/{}/{}/ -E /tmp/x509up_u{} --capath /cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/".format(username, remote_folder_name, sample_folder, str(uid)))
-                res1 = command1.read()
-                if "Error:" in res1:
-                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! CREATE THIS FOLDER MANUALLY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!") 
-                    print("Folder : davs://webdav.recas.ba.infn.it:8443/cms/store/user/{}/{}/{}/   NOT CREATED".format(username, remote_folder_name, sample_folder))
-                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!") 
-                else:
-                    print("Folder : davs://webdav.recas.ba.infn.it:8443/cms/store/user/{}/{}/{}/ created".format(username, remote_folder_name, sample_folder))
-                command2 = os.popen("davix-mkdir davs://webdav.recas.ba.infn.it:8443/cms/store/user/{}/{}/{}/{}/ -E /tmp/x509up_u{} --capath /cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/".format(username, remote_folder_name, sample_folder, launchtime, str(uid)))
-                res2 = command2.read()
-                if "Error:" in res2:
-                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! CREATE THIS FOLDER MANUALLY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!") 
-                    print("Folder : davs://webdav.recas.ba.infn.it:8443/cms/store/user/{}/{}/{}/{}   NOT CREATED".format(username, remote_folder_name, sample_folder, launchtime))
-                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                else:
-                    print("Folder : davs://webdav.recas.ba.infn.it:8443/cms/store/user/{}/{}/{}/{} created".format(username, remote_folder_name, sample_folder, launchtime))
-        elif where_to_write == 'eos':
-            if not os.path.exists("/eos/home-l/lfavilla/xAnimo/"+remote_folder_name+"/"+sample_folder):
-                os.makedirs("/eos/home-l/lfavilla/xAnimo/"+remote_folder_name+"/"+sample_folder)
-            print("root://eosuser.cern.ch//eos/user/l/lfavilla/xAnimo/{}/{} created".format(remote_folder_name, sample_folder))
-            if not os.path.exists("/eos/home-l/lfavilla/xAnimo/"+remote_folder_name+"/"+sample_folder+"/"+launchtime):
-                os.makedirs("/eos/home-l/lfavilla/xAnimo/"+remote_folder_name+"/"+sample_folder+"/"+launchtime)
-            print("root://eosuser.cern.ch//eos/user/l/lfavilla/xAnimo/{}/{}/{} created".format(remote_folder_name, sample_folder, launchtime))
+        sample_folder = sample.label
+        if not debug: 
+            command1 = os.popen("davix-mkdir {}/store/user/{}/{}/{}/ -E /tmp/x509up_u{} --capath /cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/".format(redirector, username, remote_folder_name, sample_folder, str(uid)))
+            res1 = command1.read()
+            if "Error:" in res1:
+                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! CREATE THIS FOLDER MANUALLY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!") 
+                print("Folder : {}/store/user/{}/{}/{}/   NOT CREATED".format(redirector, username, remote_folder_name, sample_folder))
+                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!") 
+            else:
+                print("Folder : {}/store/user/{}/{}/{}/ created".format(redirector, username, remote_folder_name, sample_folder))
+            command2 = os.popen("davix-mkdir {}/store/user/{}/{}/{}/{}/ -E /tmp/x509up_u{} --capath /cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/".format(redirector, username, remote_folder_name, sample_folder, launchtime, str(uid)))
+            res2 = command2.read()
+            if "Error:" in res2:
+                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! CREATE THIS FOLDER MANUALLY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!") 
+                print("Folder : {}/store/user/{}/{}/{}/{}   NOT CREATED".format(redirector, username, remote_folder_name, sample_folder, launchtime))
+                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            else:
+                print("Folder : {}/store/user/{}/{}/{}/{} created".format(redirector, username, remote_folder_name, sample_folder, launchtime))
 
         outfolder_tmp = "/tmp/"+username+"/"
         outfolder_crabscript = outfolder_tmp+sample.label+"/"
@@ -289,7 +281,6 @@ if submit:
             print("....submitting file", i, end='\r')
             outfolder_crabscript_i = outfolder_tmp+sample.label+"/file"+str(i)+"/"
             running_subfolder_file = running_subfolder + "/file" + str(i)
-            print("Running subfolder: ", running_subfolder_file)
             if not os.path.exists(running_subfolder_file):
                 os.makedirs(running_subfolder_file)
             write_crab_script(sample, f, modules, running_subfolder_file, calcualte_systematics, sample.year, debug)
@@ -320,7 +311,7 @@ if resubmit:
 
 
         # check number of files that have been actually created
-        davixfolder                     = find_folder(username, remote_folder_name, sample.label, "/tmp/x509up_u"+str(uid), "/cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/")
+        davixfolder                     = find_folder(redirector, username, remote_folder_name, sample.label, "/tmp/x509up_u"+str(uid), "/cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/")
         file_sizes                      = get_file_sizes(davixfolder, "/tmp/x509up_u"+str(uid), "/cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/")
         total_files_onTier              = len(file_sizes)
         fileNumbers_onTier              = [int(file_name.split("_")[-1].split(".")[0]) for file_name, file_size in file_sizes.items()]
@@ -359,18 +350,17 @@ if resubmit:
         print(f"Number of jobs not found on tier:   {njobs_notFoundOnTier}")
         print(f"Number of empty files:              {njobs_emptyFile}")
         print("\n")
+        print("#######################################################################################")
+        print("Resubmitting jobs that have errors according to condor logs")
+        print("#######################################################################################\n")
+        check_errors_fromcondor(sample.label, username, uid, remote_folder_name, redirector, resubmit=True, delete_files_fromtier=False)
 
 if status:
     print("\n################################################ STATUS mode")
     print("Do NOT resubmit jobs before they're finished")
     
     for sample in samples:
-        print('username is:', username)
-        print('remote folder name is: ', remote_folder_name)
-        print('sample label is:', sample.label)
-        print('uid is:', str(uid))
-        print('davix-ls -E /tmp/x509up_u'+str(uid)+' --capath /cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/ davs://webdav.recas.ba.infn.it:8443/cms/store/user/'+username+"/"+remote_folder_name+"/"+sample.label+"/")
-        davixfolder = find_folder(username, remote_folder_name, sample.label, "/tmp/x509up_u"+str(uid), "/cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/")
+        davixfolder = find_folder(redirector, username, remote_folder_name, sample.label, "/tmp/x509up_u"+str(uid), "/cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/")
         file_sizes = get_file_sizes(davixfolder, "/tmp/x509up_u"+str(uid), "/cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/")
         print("Checking status for empty files in ", sample.label)
         print("Tier folder: ", davixfolder)
@@ -390,10 +380,12 @@ if status:
                 job_failed += 1
             else:
                 job_success += 1
+        
         print("--------------------------------------------------------------------------------\n")
         print("dataset: ", sample.label)
         print("Total jobs: ", jobs_total)
         print("\033[91mJobs failed: {} ({:.2f}%)\033[0m".format(job_failed, (job_failed/jobs_total)*100))
         print("\033[92mJobs succeeded: {} ({:.2f}%)\033[0m\n".format(job_success, (job_success/jobs_total)*100))
-        print("running jobs: {} ({:.2f}%)".format(jobs_total-(job_failed+job_success), ((jobs_total-(job_failed+job_success))/jobs_total)*100))
-        print("--------------------------------------------------------------------------------")
+        print("running jobs: {} ({:.2f}%)\n".format(jobs_total-(job_failed+job_success), ((jobs_total-(job_failed+job_success))/jobs_total)*100))
+        check_errors_fromcondor(sample.label, username, uid, remote_folder_name, redirector, resubmit=False, delete_files_fromtier=delete_files)
+        print("\n--------------------------------------------------------------------------------")
