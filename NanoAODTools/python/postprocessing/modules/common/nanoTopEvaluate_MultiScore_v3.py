@@ -190,26 +190,31 @@ def fill_SVs(n_SVs, SVs_dnn, SVs, idx_top, pt_top, eta_top, phi_top, M_top):
     return SVs_dnn
 
 
-path_to_model = "/afs/cern.ch/user/a/apuglia/TprimeAnalysis/NanoAODTools/python/postprocessing/final_trainings/"
+# path_to_model = "/afs/cern.ch/user/a/apuglia/TprimeAnalysis/NanoAODTools/python/postprocessing/final_trainings/"
 
-# TTvsZJets_08_05_2025 = 'model_20_06_2025.h5'
+# # TTvsZJets_08_05_2025 = 'model_20_06_2025.h5'
 
-# model_Mixed = 'training_pfsv_Mixed_31_08_2025/model_31_08_2025.h5'
-model_Mixed = 'training_pfsv_cnn_Mixed_01_09_2025/model_01_09_2025.h5'
-model_Resolved = 'training_resolved_31_08_2025/model_31_08_2025.h5'
+# # model_Mixed = 'training_pfsv_Mixed_31_08_2025/model_31_08_2025.h5'
+# model_Mixed = 'training_pfsv_cnn_Mixed_01_09_2025/model_01_09_2025.h5'
+# model_Resolved = 'training_resolved_31_08_2025/model_31_08_2025.h5'
 
-models                  = {}
-# models['TTvsZJ'] = tf.keras.models.load_model(path_to_model + TTvsZJets_28_04_2025)
-models['mixed'] = tf.keras.models.load_model(path_to_model + model_Mixed)
-models['resolved'] = tf.keras.models.load_model(path_to_model + model_Resolved)
+# models                  = {}
+# # models['TTvsZJ'] = tf.keras.models.load_model(path_to_model + TTvsZJets_28_04_2025)
+# models['mixed'] = tf.keras.models.load_model(path_to_model + model_Mixed)
+# models['resolved'] = tf.keras.models.load_model(path_to_model + model_Resolved)
 # model = models['TTvsZJ']
 
 
-class nanoTopevaluate_MultiClass(Module):
-    def __init__(self, isMC=1, resolved = True, year = '2022'):
+class nanoTopevaluate_MultiScore(Module):
+    def __init__(self, modelMix_path, modelRes_path, isMC=1, resolved = True, year = '2022', mode='difficult'):
+        self.modelMix_path = modelMix_path
+        self.modelRes_path = modelRes_path
+        self.modelMix      = tf.keras.models.load_model(modelMix_path)
+        self.modelRes      = tf.keras.models.load_model(modelRes_path)
         self.isMC = isMC
         self.resolved = resolved
         self.year = year
+        self.mode = mode
         pass
 
 
@@ -264,7 +269,14 @@ class nanoTopevaluate_MultiClass(Module):
         #if self.year == 2018:
          #   fj_dnn      = np.zeros((int(len(tophighpt)), 12)) 
         #elif self.year == 2022:
-        n_SVs, n_PFCs = 3,20
+        if self.mode=='easy':
+            n_SVs, n_PFCs = 1,5
+        elif self.mode=='medium': 
+            n_SVs, n_PFCs = 2,10
+        elif self.mode=='difficult':
+            n_SVs, n_PFCs = 3,20
+        else: 
+            print('ERROR: please enter a correct type of mode.')
         fj_dnn      = np.zeros((len(tophighpt), 12))
         jets_dnn    = np.zeros((len(tophighpt), 3, 8))        
         mass_dnn    = np.zeros((len(tophighpt), 3))
@@ -274,15 +286,15 @@ class nanoTopevaluate_MultiClass(Module):
 
         for i, top in enumerate(tophighpt):
             if top.idxJet2==-1:
-                j0, j1      = jets[top.idxJet0],jets[top.idxJet1]
-                fj          = fatjets[top.idxFatJet]
+                j0, j1      = goodjets[top.idxJet0],goodjets[top.idxJet1]
+                fj          = goodfatjets[top.idxFatJet]
                 sumjet      = j0.p4()+j1.p4()
                 jets_dnn    = fill_jets(jets_dnn = jets_dnn, j0=j0, j1=j1, j2=None, sumjet = sumjet,  fj_phi= fj.phi, fj_eta=fj.eta, idx_top=i, year = self.year)
                 fj_dnn      = fill_fj(fj_dnn= fj_dnn, fj= fj, idx_top= i, year = self.year)
                 mass_dnn    = fill_mass(mass_dnn=mass_dnn, idx_top=i, j0=j0, j1=j1, j2 =None, fj = fj)
             
             elif top.idxFatJet==-1:
-                j0, j1, j2  = jets[top.idxJet0],jets[top.idxJet1],jets[top.idxJet2]
+                j0, j1, j2  = goodjets[top.idxJet0],goodjets[top.idxJet1],goodjets[top.idxJet2]
                 fj          = ROOT.TLorentzVector()
                 fj.SetPtEtaPhiM(0,0,0,0)
                 sumjet      = j0.p4()+j1.p4()+j2.p4()
@@ -290,8 +302,8 @@ class nanoTopevaluate_MultiClass(Module):
                 mass_dnn    = fill_mass(mass_dnn=mass_dnn, idx_top=i, j0=j0, j1=j1, j2 =j2, fj = None)
             else:
 
-                j0, j1, j2  = jets[top.idxJet0],jets[top.idxJet1],jets[top.idxJet2]
-                fj          = fatjets[top.idxFatJet]
+                j0, j1, j2  = goodjets[top.idxJet0],goodjets[top.idxJet1],goodjets[top.idxJet2]
+                fj          = goodfatjets[top.idxFatJet]
                 sumjet      = j0.p4() + j1.p4() +j2.p4()
                 jets_dnn    = fill_jets(jets_dnn=jets_dnn, j0= j0,j1= j1,j2= j2,sumjet= sumjet,fj_phi= fj.phi,fj_eta= fj.eta,idx_top= i, year = self.year)
                 fj_dnn      = fill_fj(fj_dnn= fj_dnn,fj= fj, idx_top=i, year = self.year)
@@ -341,8 +353,8 @@ class nanoTopevaluate_MultiClass(Module):
         if len(tophighpt)!=0:
             # top_score2      = models["score2"].predict({"fatjet":fj_dnn, "jet": jets_dnn,  "top_mass": mass_dnn[:,:2]}).flatten().tolist()
             
-            model = models['mixed']
-            scores = model({"fatjet": fj_dnn, "jet": jets_dnn, "top": mass_dnn, 'pfc': PFC_dnn, 'sv': SVs_dnn}).numpy()
+            # model = models['mixed']
+            scores = self.modelMix({"fatjet": fj_dnn, "jet": jets_dnn, "top": mass_dnn, 'pfc': PFC_dnn, 'sv': SVs_dnn}).numpy()
            
             prob_true_tt = (scores[:,1]).flatten().tolist()
             prob_false_tt = (scores[:,0]).flatten().tolist()
@@ -361,53 +373,55 @@ class nanoTopevaluate_MultiClass(Module):
 
         # loop su Low Pt candidates per valutare lo score con i modelli corrispondenti
         # if self.resolved: 
+       
+
         jets_dnn_res = np.zeros((int(len(toplowpt)), 3, 8)) 
-        n_SVs, n_PFCs = 3,20
+        
         PFC_dnn_res            = np.zeros((len(toplowpt),n_PFCs,13))
         SVs_dnn_res            = np.zeros((len(toplowpt),n_SVs, 12))
         mass_dnn_res    = np.zeros((len(toplowpt), 3))
         idx_resolved = 0
         for i, top in enumerate(toplowpt):
-            if top.idxFatJet == -1:
+           
                 
-                j0, j1, j2 = jets[top.idxJet0],jets[top.idxJet1],jets[top.idxJet2]
-                fj = ROOT.TLorentzVector()
-                fj.SetPtEtaPhiM(0,0,0,0)
-                sumjet = j0.p4()+j1.p4()+j2.p4()
-                jets_dnn = fill_jets(jets_dnn=jets_dnn_res, j0= j0,j1= j1,j2= j2,sumjet= sumjet,fj_phi= fj.Phi(),fj_eta= fj.Eta(),idx_top= idx_resolved, year = self.year)
-                mass_dnn    = fill_mass(mass_dnn=mass_dnn_res, idx_top=idx_resolved, j0=j0, j1=j1, j2 =j2, fj = None)
-                PFCs=[]
-                pfc_indexes=[]
-                sv_indexes = []
-                SVs = []
+            j0, j1, j2 = goodjets[top.idxJet0],goodjets[top.idxJet1],goodjets[top.idxJet2]
+            fj = ROOT.TLorentzVector()
+            fj.SetPtEtaPhiM(0,0,0,0)
+            sumjet = j0.p4()+j1.p4()+j2.p4()
+            jets_dnn = fill_jets(jets_dnn=jets_dnn_res, j0= j0,j1= j1,j2= j2,sumjet= sumjet,fj_phi= fj.Phi(),fj_eta= fj.Eta(),idx_top= idx_resolved, year = self.year)
+            mass_dnn    = fill_mass(mass_dnn=mass_dnn_res, idx_top=idx_resolved, j0=j0, j1=j1, j2 =j2, fj = None)
+            PFCs=[]
+            pfc_indexes=[]
+            sv_indexes = []
+            SVs = []
 
-                for idx in Indexes_pfc:    
-                    #print(idx.idxPFC)
-                    pfc_indexes.append(idx.idxPFC)
+            for idx in Indexes_pfc:    
+                #print(idx.idxPFC)
+                pfc_indexes.append(idx.idxPFC)
 
-                for idx in Indexes_sv:
-                    sv_indexes.append(idx.idxSV)
+            for idx in Indexes_sv:
+                sv_indexes.append(idx.idxSV)
 
-                start_index_pfc = pfc_indexes.index(-(i+1))
-                end_index_pfc = pfc_indexes.index(-(i+2))
-                idx_pfc_to_append = pfc_indexes[start_index_pfc+1:end_index_pfc]
+            start_index_pfc = pfc_indexes.index(-(i+1))
+            end_index_pfc = pfc_indexes.index(-(i+2))
+            idx_pfc_to_append = pfc_indexes[start_index_pfc+1:end_index_pfc]
 
-                start_index_sv = sv_indexes.index(-(i + 1))
-                end_index_sv   = sv_indexes.index(-(i + 2))
-                idx_sv_to_append = sv_indexes[start_index_sv+1 : end_index_sv]
+            start_index_sv = sv_indexes.index(-(i + 1))
+            end_index_sv   = sv_indexes.index(-(i + 2))
+            idx_sv_to_append = sv_indexes[start_index_sv+1 : end_index_sv]
 
-                for particle in PFCands: #ciclo sulle particles
-                    if particle.Idx in idx_pfc_to_append:
-                        PFCs.append(particle)
+            for particle in PFCands: #ciclo sulle particles
+                if particle.Idx in idx_pfc_to_append:
+                    PFCs.append(particle)
 
-                for vertex in SV_vertexes:
-                    if vertex.Idx in idx_sv_to_append:
-                        SVs.append(vertex)
+            for vertex in SV_vertexes:
+                if vertex.Idx in idx_sv_to_append:
+                    SVs.append(vertex)
 
-                fill_PFCs(n_PFCs= n_PFCs, PFCs_dnn= PFC_dnn_res, PFCs= PFCs, idx_top= idx_resolved, pt_top= top.pt, eta_top= top.eta, phi_top= top.phi, M_top= top.mass)
+            fill_PFCs(n_PFCs= n_PFCs, PFCs_dnn= PFC_dnn_res, PFCs= PFCs, idx_top= idx_resolved, pt_top= top.pt, eta_top= top.eta, phi_top= top.phi, M_top= top.mass)
 
-                fill_SVs(n_SVs= n_SVs, SVs_dnn= SVs_dnn_res, SVs= SVs, idx_top= idx_resolved, pt_top= top.pt, eta_top= top.eta, phi_top= top.phi, M_top= top.mass)
-                idx_resolved += 1
+            fill_SVs(n_SVs= n_SVs, SVs_dnn= SVs_dnn_res, SVs= SVs, idx_top= idx_resolved, pt_top= top.pt, eta_top= top.eta, phi_top= top.phi, M_top= top.mass)
+            idx_resolved += 1
 
 
         # print('jets dnn: ', jets_dnn_res.shape)
@@ -417,8 +431,8 @@ class nanoTopevaluate_MultiClass(Module):
 
 
         if len(toplowpt)!=0:
-            modelRes = models['resolved']
-            top_score_DNN = modelRes({"jet": jets_dnn_res,'top': mass_dnn_res,'pfc': PFC_dnn_res, 'sv': SVs_dnn_res}).numpy()
+            # modelRes = models['resolved']
+            top_score_DNN = self.modelRes({"jet": jets_dnn_res,'top': mass_dnn_res,'pfc': PFC_dnn_res, 'sv': SVs_dnn_res}).numpy()
             prob_true_tt_res = (top_score_DNN[:,1]).flatten().tolist()
             prob_false_tt_res= (top_score_DNN[:,0]).flatten().tolist()
             prob_qcd_res = (top_score_DNN[:,2]).flatten().tolist()

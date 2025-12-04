@@ -96,7 +96,7 @@ class nanoTopcand_PFC_SV(Module):
         self.out.branch("nIndexesPFC", "I")
         self.out.branch("nIndexesSV" , "I")
         self.out.branch("IndexesPFC_idxPFC", "I", lenVar="nIndexesPFC")
-        self.out.branch("IndexedSV_idxSV"  , "I", lenVar="nIndexesSV" )
+        self.out.branch("IndexesSV_idxSV"  , "I", lenVar="nIndexesSV" )
         for scenario in self.scenarios:
             self.out.branch("TopMixed_pt_"+scenario, "F", lenVar="nTopMixed")
             self.out.branch("TopMixed_mass_"+scenario, "F", lenVar="nTopMixed")
@@ -171,9 +171,9 @@ class nanoTopcand_PFC_SV(Module):
                     top_p4 = lowpt_top(j0, j1, j2, s="nominal")
                     if top_p4.Pt()<pt_cut_low:
                         ntoplowpt+=1
-                        toplow_idxjet0.append(j0.jetIdx)
-                        toplow_idxjet1.append(j1.jetIdx)
-                        toplow_idxjet2.append(j2.jetIdx)
+                        toplow_idxjet0.append(idx_j0)
+                        toplow_idxjet1.append(idx_j1)
+                        toplow_idxjet2.append(idx_j2)
                         toplow_eta_.append(top_p4.Eta())
                         toplow_phi_.append(top_p4.Phi())
                         for scenario in self.scenarios:
@@ -193,9 +193,9 @@ class nanoTopcand_PFC_SV(Module):
                         top_p4 = highpt_top(j0=j0, j1=j1, j2=None, fj=fj, s="nominal")
                         if top_p4.Pt()>pt_cut_high:
                             ntophighpt += 1
-                            tophigh_idxfatjet.append(fj.fatjetIdx)
-                            tophigh_idxjet0.append(j0.jetIdx)
-                            tophigh_idxjet1.append(j1.jetIdx)
+                            tophigh_idxfatjet.append(idx_fj)
+                            tophigh_idxjet0.append(idx_j0)
+                            tophigh_idxjet1.append(idx_j1)
                             tophigh_idxjet2.append(-1)
                             tophigh_eta_.append(top_p4.Eta())
                             tophigh_phi_.append(top_p4.Phi())
@@ -209,29 +209,29 @@ class nanoTopcand_PFC_SV(Module):
                                 tophigh_truth.append(0)
 
                             for pfcand in PFCands: 
-                                if j0.jetIdx == pfcand.JetIdx:
+                                if idx_j0 == pfcand.JetIdx:
                                     tophigh_idxPFC.append(pfcand.Idx)
                                     n_idxPFC+=1
-                                elif j1.jetIdx == pfcand.JetIdx: 
+                                elif idx_j1 == pfcand.JetIdx: 
                                     tophigh_idxPFC.append(pfcand.Idx)
                                     n_idxPFC+=1
-                                elif fj.fatjetIdx == pfcand.FatJetIdx:
+                                elif idx_fj == pfcand.FatJetIdx:
                                     tophigh_idxPFC.append(pfcand.Idx)
                                     n_idxPFC+=1
                             
                             for sv in SVs:
-                                if j0.jetIdx == sv.JetIdx:
+                                if idx_j0 == sv.JetIdx:
                                     n_idxSV+=1 
                                     tophigh_idxSV.append(sv.Idx)
-                                elif j1.jetIdx == sv.JetIdx:
+                                elif idx_j1 == sv.JetIdx:
                                     n_idxSV+=1
                                     tophigh_idxSV.append(sv.Idx)
-                                elif fj.fatjetIdx == sv.FatJetIdx:
+                                elif idx_fj == sv.FatJetIdx:
                                     tophigh_idxSV.append(sv.Idx)
                                     n_idxSV+=1
 
                             
-                            tophigh_idxPFc.append(-1*(ntophighpt+1))
+                            tophigh_idxPFC.append(-1*(ntophighpt+1))
                             n_idxPFC += 1
                             n_idxSV += 1
                             tophigh_idxSV.append(-1*(ntophighpt+1))
@@ -242,9 +242,9 @@ class nanoTopcand_PFC_SV(Module):
                         if top_p4.Pt()>pt_cut_high:
                             ntophighpt += 1
                             tophigh_idxfatjet.append(-1)
-                            tophigh_idxjet0.append(j0.jetIdx)
-                            tophigh_idxjet1.append(j1.jetIdx)
-                            tophigh_idxjet2.append(j2.jetIdx)
+                            tophigh_idxjet0.append(idx_j0)
+                            tophigh_idxjet1.append(idx_j1)
+                            tophigh_idxjet2.append(idx_j2)
                             tophigh_eta_.append(top_p4.Eta())
                             tophigh_phi_.append(top_p4.Phi())
                             for scenario in self.scenarios:
@@ -257,24 +257,24 @@ class nanoTopcand_PFC_SV(Module):
                                 tophigh_truth.append(0)
 
                             for pfcand in PFCands: 
-                                if j0.jetIdx == pfcand.JetIdx:
+                                if idx_j0 == pfcand.JetIdx:
                                     tophigh_idxPFC.append(pfcand.Idx)
                                     n_idxPFC +=1 
-                                elif j1.jetIdx == pfcand.JetIdx:
+                                elif idx_j1 == pfcand.JetIdx:
                                     tophigh_idxPFC.append(pfcand.Idx)
                                     n_idxPFC += 1
-                                elif j2.jetIdx == pfcand.JetIdx:
+                                elif idx_j2 == pfcand.JetIdx:
                                     tophigh_idxPFC.append(pfcand.Idx)
                                     n_idxPFC +=1
                             
                             for sv in SVs:
-                                if j0.jetIdx == sv.JetIdx:
+                                if idx_j0 == sv.JetIdx:
                                     tophigh_idxSV.append(sv.Idx)
                                     n_idxSV += 1
-                                elif j1.jetIdx == sv.JetIdx:
+                                elif idx_j1 == sv.JetIdx:
                                     tophigh_idxSV.append(sv.Idx)
                                     n_idxSV+=1
-                                elif j2.jetIdx == sv.JetIdx:
+                                elif idx_j2 == sv.JetIdx:
                                     tophigh_idxSV.append(sv.Idx)
                                     n_idxSV +=1
                             
@@ -290,10 +290,10 @@ class nanoTopcand_PFC_SV(Module):
                             top_p4 = highpt_top(j0=j0, j1=j1, j2=j2, fj=fj, s = "nominal")
                             if top_p4.Pt()>pt_cut_high:
                                 ntophighpt += 1
-                                tophigh_idxfatjet.append(fj.fatjetIdx)
-                                tophigh_idxjet0.append(j0.jetIdx)
-                                tophigh_idxjet1.append(j1.jetIdx)
-                                tophigh_idxjet2.append(j2.jetIdx)
+                                tophigh_idxfatjet.append(idx_fj)
+                                tophigh_idxjet0.append(idx_j0)
+                                tophigh_idxjet1.append(idx_j1)
+                                tophigh_idxjet2.append(idx_j2)
                                 tophigh_eta_.append(top_p4.Eta())
                                 tophigh_phi_.append(top_p4.Phi())
                                 for scenario in self.scenarios:
@@ -306,31 +306,31 @@ class nanoTopcand_PFC_SV(Module):
                                     tophigh_truth.append(0)
 
                                 for pfcand in PFCands:
-                                    if j0.jetIdx == pfcand.JetIdx:
+                                    if idx_j0 == pfcand.JetIdx:
                                         tophigh_idxPFC.append(pfcand.Idx)
                                         n_idxPFC += 1
-                                    elif j1.jetIdx == pfcand.JetIdx:
+                                    elif idx_j1 == pfcand.JetIdx:
                                         tophigh_idxPFC.append(pfcand.Idx)
                                         n_idxPFC += 1
-                                    elif j2.jetIdx == pfcand.JetIdx:
+                                    elif idx_j2 == pfcand.JetIdx:
                                         tophigh_idxPFC.append(pfcand.Idx)
                                         n_idxPFC += 1
-                                    elif fj.fatjetIdx == pfcand.FatJetIdx:
+                                    elif idx_fj == pfcand.FatJetIdx:
                                         tophigh_idxPFC.append(pfcand.Idx)
                                         n_idxPFC += 1
 
 
                                 for sv in SVs:
-                                    if j0.jetIdx == sv.JetIdx:
+                                    if idx_j0 == sv.JetIdx:
                                         tophigh_idxSV.append(sv.Idx)
                                         n_idxSV +=1
-                                    elif j1.jetIdx == sv.JetIdx:
+                                    elif idx_j1 == sv.JetIdx:
                                         n_idxSV += 1
                                         tophigh_idxSV.append(sv.Idx)
-                                    elif j2.jetIdx == sv.JetIdx:
+                                    elif idx_j2 == sv.JetIdx:
                                         n_idxSV +=1
                                         tophigh_idxSV.append(sv.Idx)
-                                    elif fj.fatjetIdx == sv.FatJetIdx:
+                                    elif idx_fj == sv.FatJetIdx:
                                         n_idxSV += 1
                                         tophigh_idxSV.append(sv.Idx)
                                 
