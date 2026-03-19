@@ -447,7 +447,7 @@ class nanoTopevaluate_MultiScore(Module):
         
         tophighpt             = Collection(event, "TopMixed")
         toplowpt              = Collection(event, "TopResolved")
-        
+        # tophighpt = tophighpt[0:1]
         PFCands      = Collection(event,"PFCands")
         SV_vertexes  = Collection(event, "SV")
 
@@ -473,6 +473,7 @@ class nanoTopevaluate_MultiScore(Module):
         SVs_dnn     = {s: np.zeros((len(tophighpt), n_SVs , 12)) for s in self.scenarios}
         # print('num top high is: ', len(tophighpt))
         # print('numt top low is: ', len(toplowpt))
+
         for i, top in enumerate(tophighpt):
             if top.idxJet2==-1:
                 j0, j1      = goodjets[top.idxJet0],goodjets[top.idxJet1]
@@ -531,6 +532,8 @@ class nanoTopevaluate_MultiScore(Module):
                 PFC_dnn[s] = fill_PFCs(n_PFCs= n_PFCs, PFCs_dnn= PFC_dnn[s], PFCs= PFCs, idx_top= i,top = top, scenario = s)
 
                 SVs_dnn[s] = fill_SVs(n_SVs= n_SVs, SVs_dnn= SVs_dnn[s], SVs= SVs, idx_top= i,top = top, scenario = s)
+            if i == 0:
+                print(len(PFC_dnn['nominal'][0]))
 
        
         ####### SCORES ####### 
@@ -542,6 +545,7 @@ class nanoTopevaluate_MultiScore(Module):
             mass_dnn_concatenated = np.concatenate(list(mass_dnn.values()), axis=0)
             PFC_dnn_concatenated = np.concatenate(list(PFC_dnn.values()), axis =0)
             SVs_dnn_concatenated = np.concatenate(list(SVs_dnn.values()), axis =0)
+            
             # scores_ = model({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy().flatten().tolist()
             scores_ = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated, 'pfc': PFC_dnn_concatenated, 'sv': SVs_dnn_concatenated}).numpy()
             # .flatten().tolist()
@@ -621,10 +625,11 @@ class nanoTopevaluate_MultiScore(Module):
         
         
         if len(toplowpt)!=0:
-            
+            # print(shape(PFC_dnn))
             jets_dnn_concatenated = np.concatenate(list(jets_dnn.values()), axis=0)
             mass_dnn_concatenated = np.concatenate(list(mass_dnn.values()), axis=0)
             PFC_dnn_concatenated = np.concatenate(list(PFC_dnn.values()), axis =0)
+            
             SVs_dnn_concatenated = np.concatenate(list(SVs_dnn.values()), axis =0)
             scores_res_ = self.modelRes({"jet":jets_dnn_concatenated, "top":mass_dnn_concatenated, "pfc": PFC_dnn_concatenated, "sv":SVs_dnn_concatenated}).numpy()
             scores_res = {}

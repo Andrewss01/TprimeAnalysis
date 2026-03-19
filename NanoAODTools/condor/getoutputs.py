@@ -1,7 +1,7 @@
 # to run from lxplus9
 import ROOT, os
 from checkjobs import *
-from PhysicsTools.NanoAODTools.postprocessing.samples.samples import *
+from PhysicsTools.NanoAODTools.postprocessing.samples.samples_with_PF import *
 from checkjobs import get_file_sizes, find_folder, job_exit_code, checkSubmitStatus
 import optparse
 import json
@@ -12,7 +12,7 @@ usage = 'python3 getoutputs.py -d dataset_name'
 parser = optparse.OptionParser(usage)
 parser.add_option('-d', '--dat', dest='dat', type=str, default = '', help='Please enter a dataset name')
 parser.add_option('-o', '--output', dest='output', type=str, default = 'dict_samples_2022.json', help='Please enter a json output file')
-parser.add_option('--tier', dest='tier', type=str, default = 'pisa', help='Please enter location where to write the output file (tier pisa or bari)')
+parser.add_option('--tier', dest='tier', type=str, default = 'bari', help='Please enter location where to write the output file (tier pisa or bari)')
 (opt, args) = parser.parse_args()
 where_to_read = opt.tier
 
@@ -220,6 +220,9 @@ for sample in samples:
     print(f"Sample {sample.label} done!")
     print("-----------------------------------------------------")
     print(out_dict[sample.process][sample.label])
+    # print(out_dict.keys())
+    # print("-----")
+    # print(json_out.keys())
     with open('../python/postprocessing/samples/'+outjson, 'w') as json_output:
         json.dump(json_out, json_output, indent = 2)
 print(f"Output written to ../python/postprocessing/samples/{outjson}")

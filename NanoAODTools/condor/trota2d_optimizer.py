@@ -19,7 +19,7 @@ parser.add_option('-s', '--submit', dest='submit', action='store_true', default=
 parser.add_option('-r', '--resubmit', dest='resubmit', action='store_true', default=False, help='resubmit failed jobs')
 parser.add_option('--status', dest='status', action='store_true', default=False, help='check jobs status')
 parser.add_option('--delete', dest='delete_files', action='store_true', default=False, help='delete files from tier for jobs with davix errors during resubmission')
-parser.add_option('--mode'  , dest='mode_evaluate', type= str, default = 'difficult', help='easy: nSV=1 nPFC=5, medium: nsv=2 nPFC=10, difficult: nsV=3 nPFC=20')
+parser.add_option('--mode'  , dest='mode_evaluate', type= str, default = 'standard', help='easy: nSV=1 nPFC=5, medium: nsv=2 nPFC=10, difficult: nsV=3 nPFC=20')
 (opt, args) = parser.parse_args()
 debug = opt.debug 
 submit = opt.submit
@@ -58,7 +58,7 @@ os.popen("cp /tmp/x509up_u" + str(uid) + " /afs/cern.ch/user/" + inituser + "/" 
 
 
 # insert here the name of output folder
-remote_folder_name = "Run3Analysis_Tprime"
+remote_folder_name = "TROTA_optimizing"
 
 print("\033[92m\n\n######################## POSTPROC SUBMITTER ########################\033[0m")
 print("Launching crab script for dataset: ", opt.dat)
@@ -130,10 +130,10 @@ def write_crab_script(sample, file, modules, run_folder, calcualte_systematics, 
     else:
         year_tag = year
     
-    if debug:
-        extra_str=",maxEntries=100"
-    else:
-        extra_str=""
+    # if debug:
+    #     extra_str=",maxEntries=100"
+    # else:
+    extra_str=""
     if isMC:
         f.write(f"p=PostProcessor('.', ['root://cms-xrd-global.cern.ch/{file}'], '', modules=[{modules}], provenance=True, haddFileName='tree.root', fwkJobReport=False, histFileName='hist.root', histDirName='plots', outputbranchsel='/afs/cern.ch/{workdir}/{inituser}/{username}/{name_main_folder}/NanoAODTools/scripts/keep_and_drop.txt'{extra_str})\n")# haddFileName='"+sample.label+".root'
 
@@ -201,7 +201,7 @@ elif dataset_to_run in sample_dict.keys():
         samples = [sample_dict[dataset_to_run]]
         print('dataset is: ' , sample_dict[dataset_to_run].dataset)
 
-running_folder = os.environ.get('PWD')+"/tmp/"
+running_folder = os.environ.get('PWD')+"/tmp_trota_optimizing/"
 if not os.path.exists(running_folder):
     os.makedirs(running_folder)
  
@@ -210,8 +210,26 @@ if submit:
     print("\n################################################ SUBMITTING mode")
     launchtime = time.strftime("%Y%m%d_%H%M%S") #"20240704_122343" ho sottomesso diversi job con lo stesso launchtime
     for sample in samples:
+        outfolder_tmp = "/tmp/"+username+"/"
+        # outfolder_crabscript = outfolder_tmp+sample.label+"/"
+        if calcualte_systematics: 
+            if trota_2d:
+                running_subfolder = running_folder +"/" + sample.label + "/trota2d_Wsyst/" + mode_evaluate
+                outfolder_crabscript = outfolder_tmp + sample.label + "/trota2d_Wsyst/" + mode_evaluate
+            else: 
+                running_subfolder  = running_folder +"/" + sample.label + "/trota_Wsyst/" + mode_evaluate
+                outfolder_crabscript = outfolder_tmp + sample.label + "/trota_Wsyst/" + mode_evaluate
+        else:
+            if trota_2d:
+                running_subfolder = running_folder + "/" + sample.label + "/trota2d/" +mode_evaluate
+                outfolder_crabscript = outfolder_tmp + sample.label + "/trota2d/" + mode_evaluate
+            else: 
+                running_subfolder = running_folder + "/" + sample.label + "/trota/" + mode_evaluate
+                outfolder_crabscript = outfolder_tmp + sample.label + "/trota/" + mode_evaluate
         
-        running_subfolder = running_folder+"/" +sample.label
+        
+        # running_subfolder = running_folder+"/" +sample.label
+
         if not os.path.exists(running_subfolder):
             os.makedirs(running_subfolder)
         if not os.path.exists(running_subfolder+"/condor/output"):
@@ -240,8 +258,7 @@ if submit:
             else:
                 print("Folder : {}/store/user/{}/{}/{}/{} created".format(redirector, username, remote_folder_name, sample_folder, launchtime))
 
-        outfolder_tmp = "/tmp/"+username+"/"
-        outfolder_crabscript = outfolder_tmp+sample.label+"/"
+        
 
         isMC = True
         if "Data" in sample.label: isMC = False
@@ -270,13 +287,7 @@ if submit:
         else:
             if sample.year==2018:
                 modules = "lumiMask(year = "+str(sample.year)+"), MET_Filter(year = "+str(sample.year)+"), preselection(), nanoTopcand(isMC=0), globalvar(), nanoTopevaluate_MultiScore(isMC=0, year = "+str(sample.year)+", modelMix_path='"+modelMix_path+"', modelRes_path='"+modelRes_path+"')"
-            elif sample.year == 2022 and trota_2d:
-                if calcualte_systematics:
-                    modules = "lumiMask(year = "+str(sample.year)+"),MET_Filter(year = "+str(sample.year)+"),JetVetoMaps_run3(year="+str(sample.year)+",EE="+str(sample.EE)+"),preselection(),CMSJMECalculators(configcreate(isMC=False,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='"+sample.runP+"',jetType='AK4PFPuppi',forMET=False,doJer=True),jetType='AK4PFPuppi',isMC=False,forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv=12),CMSJMECalculators(configcreate(isMC=False,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='"+sample.runP+"',jetType='AK8PFPuppi',forMET=False,doJer=True),jetType='AK8PFPuppi',isMC=False,forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv=12),CMSJMECalculators(configcreate(isMC=False,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='"+sample.runP+"',jetType='AK4PFPuppi',forMET=True,doJer=True),jetType='AK4PFPuppi',isMC=False,forMET=True,PuppiMET=True,addHEM2018Issue=False,NanoAODv=12), Idx_PFC_SV(), deltaR_PF_SV(), collectionMerger(input = ['PFCands'], output = 'PFCands', sortkey=lambda x: x.pt, reverse = True, selector = None, maxObjects = None), collectionMerger(input = ['SV'], output = 'SV', sortkey=lambda x: x.ntracks, reverse = True, selector = None, maxObjects = None), nanoTopcand_PFC_SV(isMC= 0),globalvar(), nanoTopevaluate_MultiScore(isMC = 0, year = "+str(sample.year)+", modelMix_path='"+modelMix_path+"', modelRes_path='"+modelRes_path+"', mode = '"+mode_evaluate+"')"
-                else:
-                    modules = "lumiMask(year = "+str(sample.year)+"),MET_Filter(year = "+str(sample.year)+"),JetVetoMaps_run3(year="+str(sample.year)+",EE="+str(sample.EE)+"),preselection(), Idx_PFC_SV(), deltaR_PF_SV(), collectionMerger(input = ['PFCands'], output = 'PFCands', sortkey=lambda x: x.pt, reverse = True, selector = None, maxObjects = None), collectionMerger(input = ['SV'], output = 'SV', sortkey=lambda x: x.ntracks, reverse = True, selector = None, maxObjects = None), nanoTopcand_PFC_SV(isMC= 0),globalvar(), nanoTopevaluate_MultiScore(isMC = 0, year = "+str(sample.year)+", modelMix_path='"+modelMix_path+"', modelRes_path='"+modelRes_path+"', mode = '"+mode_evaluate+"')"
-                    
-            elif sample.year in [2022,2023] and not trota_2d: 
+            elif sample.year in [2022,2023]:
                 if calcualte_systematics:
                     modules = "lumiMask(year = "+str(sample.year)+"),MET_Filter(year = "+str(sample.year)+"),JetVetoMaps_run3(year="+str(sample.year)+",EE="+str(sample.EE)+"),preselection(),CMSJMECalculators(configcreate(isMC=False,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='"+sample.runP+"',jetType='AK4PFPuppi',forMET=False,doJer=True),jetType='AK4PFPuppi',isMC=False,forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv=12),CMSJMECalculators(configcreate(isMC=False,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='"+sample.runP+"',jetType='AK8PFPuppi',forMET=False,doJer=True),jetType='AK8PFPuppi',isMC=False,forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv=12),CMSJMECalculators(configcreate(isMC=False,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='"+sample.runP+"',jetType='AK4PFPuppi',forMET=True,doJer=True),jetType='AK4PFPuppi',isMC=False,forMET=True,PuppiMET=True,addHEM2018Issue=False,NanoAODv=12),nanoTopcand(isMC=False),globalvar(), nanoTopevaluate_MultiScore(isMC=0,year = "+str(sample.year)+", modelMix_path='"+modelMix_path+"', modelRes_path='"+modelRes_path+"')"
                 else:
@@ -288,7 +299,7 @@ if submit:
 
         for i, f in enumerate(files):
             print("....submitting file", i, end='\r')
-            outfolder_crabscript_i = outfolder_tmp+sample.label+"/file"+str(i)+"/"
+            outfolder_crabscript_i = outfolder_crabscript+"/file"+str(i)+"/"
             running_subfolder_file = running_subfolder + "/file" + str(i)
             if not os.path.exists(running_subfolder_file):
                 os.makedirs(running_subfolder_file)
@@ -338,7 +349,6 @@ if resubmit:
         njobs_toResubmit     = 0
         njobs_notFoundOnTier = 0
         njobs_emptyFile      = 0
-        njobs_hold           = 0
         for jobNumber in range(jobs_total):
             resubmit_job     = False
             file_name        = f"tree_hadd_{jobNumber}.root"
@@ -349,20 +359,11 @@ if resubmit:
                 resubmit_job                     = True
             else:
                 file_size = file_sizes[file_name]
-                
                 if file_size < 1000:
                     print(f"File: {file_name}, Size: {file_size} bytes")
                     njobs_emptyFile             += 1
                     njobs_toResubmit            += 1
                     resubmit_job                 = True
-                
-                elif not os.path.exists(running_folder+"/"+sample.label+"/condor/error/"+sample.label+"_file"+str(jobNumber)+".err"): 
-                    print(f"Job: {jobNumber} has been on hold")
-
-                    njobs_hold += 1
-                    njobs_toResubmit +=1
-                    resubmit_job = True
-                    
 
             if resubmit_job:
                 file_num            = str(jobNumber)
@@ -395,7 +396,6 @@ if status:
         print("Tier folder: ", davixfolder)
         job_failed = 0
         job_success = 0
-        job_running= 0
         print(running_folder+"/"+sample.label)
         listoffile = os.listdir(running_folder+"/"+sample.label)
         jobs_total = 0 
@@ -405,17 +405,11 @@ if status:
                 if n>jobs_total: jobs_total = n
         jobs_total += 1
         for file_name, file_size in file_sizes.items():
-            file_num = file_name.split('.')[0].split('_')[-1]
             if file_size <1000:
                 print(f"File: {file_name}, Size: {file_size} bytes")
                 job_failed += 1
-            elif not os.path.exists(running_folder+"/"+sample.label+"/condor/error/"+sample.label+"_file"+str(file_num)+".err"):
-                job_running +=1
-                print('job running: ', job_running ,' ', running_folder+"/"+sample.label+"/condor/error/"+sample.label+"_file"+str(file_num)+".err maybe on hold")
-                
             else:
                 job_success += 1
-
         
         print("--------------------------------------------------------------------------------\n")
         print("dataset: ", sample.label)
@@ -424,5 +418,4 @@ if status:
         print("\033[92mJobs succeeded: {} ({:.2f}%)\033[0m\n".format(job_success, (job_success/jobs_total)*100))
         print("running jobs: {} ({:.2f}%)\n".format(jobs_total-(job_failed+job_success), ((jobs_total-(job_failed+job_success))/jobs_total)*100))
         check_errors_fromcondor(sample.label, username, uid, remote_folder_name, redirector, resubmit=False, delete_files_fromtier=delete_files)
-        print('jobs running or on hold: ', job_running)
         print("\n--------------------------------------------------------------------------------")

@@ -27,3 +27,5 @@ NanoAODTools/python/postprocessing/postselection/condor/
 NanoAODTools/python/postprocessing/postselection/condor_noSFbtag/
 NanoAODTools/python/postprocessing/postselection_xTopSF/condor_preprocess/
 NanoAODTools/python/postprocessing/postselection_xTopSF/condor_postSel/
+NanoAODTools/python/postprocessing/__pycache__/
+NanoAODTools/python/postprocessing/modules/common/__pycache__/
