@@ -1,5 +1,5 @@
 import os
-from PhysicsTools.NanoAODTools.postprocessing.samples.samples_with_PF import *
+# from PhysicsTools.NanoAODTools.postprocessing.samples.samples import *
 
 def get_files_string(dataset, option = 'global'):
     username = str(os.environ.get('USER'))

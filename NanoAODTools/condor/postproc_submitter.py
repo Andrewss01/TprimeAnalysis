@@ -2,7 +2,7 @@ import os
 import optparse
 import sys
 import time
-from PhysicsTools.NanoAODTools.postprocessing.samples.samples_with_PF import *
+from PhysicsTools.NanoAODTools.postprocessing.samples.samples import *
 from PhysicsTools.NanoAODTools.postprocessing.get_file_fromdas import *
 from checkjobs import get_file_sizes, find_folder, check_errors_fromcondor
 from config import models # import machine learning models dictionary from config.py
@@ -19,7 +19,6 @@ parser.add_option('-s', '--submit', dest='submit', action='store_true', default=
 parser.add_option('-r', '--resubmit', dest='resubmit', action='store_true', default=False, help='resubmit failed jobs')
 parser.add_option('--status', dest='status', action='store_true', default=False, help='check jobs status')
 parser.add_option('--delete', dest='delete_files', action='store_true', default=False, help='delete files from tier for jobs with davix errors during resubmission')
-parser.add_option('--mode'  , dest='mode_evaluate', type= str, default = 'difficult', help='easy: nSV=1 nPFC=5, medium: nsv=2 nPFC=10, difficult: nsV=3 nPFC=20')
 (opt, args) = parser.parse_args()
 debug = opt.debug 
 submit = opt.submit
@@ -27,7 +26,7 @@ resubmit = opt.resubmit
 status = opt.status
 calcualte_systematics = opt.syst
 trota_2d =  opt.trota2d
-mode_evaluate = opt.mode_evaluate
+
 
 
 where_to_write = opt.tier
@@ -58,7 +57,7 @@ os.popen("cp /tmp/x509up_u" + str(uid) + " /afs/cern.ch/user/" + inituser + "/" 
 
 
 # insert here the name of output folder
-remote_folder_name = "Run3Analysis_Tprime"
+remote_folder_name = "Run3Analysis_Tprime/Eval_samples"
 
 print("\033[92m\n\n######################## POSTPROC SUBMITTER ########################\033[0m")
 print("Launching crab script for dataset: ", opt.dat)
@@ -87,9 +86,9 @@ def write_crab_script(sample, file, modules, run_folder, calcualte_systematics, 
         f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.nanoTopcandidate_v2_syst import *\n")
         f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.nanoTopEvaluate_MultiScore_v2_syst import *\n")
     elif year==2022 and trota_2d:
-        f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.idx_PFC_SV import *\n")
-        f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.collectionMerger import *\n")
-        f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.deltaR_PF_SV import *\n")
+        # f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.idx_PFC_SV import *\n")
+        # f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.collectionMerger import *\n")
+        # f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.deltaR_PF_SV import *\n")
         if calcualte_systematics:
             f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.nanoTopcandidate_PF_SV_syst import *\n")
             f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.nanoTopEvaluate_MultiScore_v3_syst import *\n")
@@ -258,9 +257,9 @@ if submit:
             
             elif sample.year == 2022 and trota_2d:
                 if calcualte_systematics: 
-                    modules = "MCweight_writer(),MET_Filter(year = "+str(sample.year)+"),JetVetoMaps_run3(year="+str(sample.year)+",EE="+str(sample.EE)+"),preselection(),PUreweight(year="+str(sample.year)+",EE="+str(sample.EE)+"),BTagSF(year="+str(sample.year)+",EE="+str(sample.EE)+"),CMSJMECalculators(configcreate(isMC=True,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='.',jetType='AK4PFPuppi',forMET=False,doJer=True),jetType='AK4PFPuppi',isMC=True,forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv=12),CMSJMECalculators(configcreate(isMC=True,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='.',jetType='AK8PFPuppi',forMET=False,doJer=True),jetType='AK8PFPuppi',isMC=True,forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv=12),CMSJMECalculators(configcreate(isMC=True,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='.',jetType='AK4PFPuppi',forMET=True,doJer=True),jetType='AK4PFPuppi',isMC=True,forMET=True,PuppiMET=True,addHEM2018Issue=False,NanoAODv=12),GenPart_MomFirstCp(flavour='-5,-4,-3,-2,-1,1,2,3,4,5,6,-6,24,-24'), Idx_PFC_SV(), deltaR_PF_SV(), collectionMerger(input = ['PFCands'], output = 'PFCands', sortkey=lambda x: x.pt, reverse = True, selector = None, maxObjects = None), collectionMerger(input = ['SV'], output = 'SV', sortkey=lambda x: x.ntracks, reverse = True, selector = None, maxObjects = None), nanoprepro(), nanoTopcand_PFC_SV(),globalvar(), nanoTopevaluate_MultiScore(year = "+str(sample.year)+", modelMix_path='"+modelMix_path+"', modelRes_path='"+modelRes_path+"', mode = '"+mode_evaluate+"')"
+                    modules = "MCweight_writer(),MET_Filter(year = "+str(sample.year)+"),JetVetoMaps_run3(year="+str(sample.year)+",EE="+str(sample.EE)+"),preselection(),PUreweight(year="+str(sample.year)+",EE="+str(sample.EE)+"),BTagSF(year="+str(sample.year)+",EE="+str(sample.EE)+"),CMSJMECalculators(configcreate(isMC=True,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='.',jetType='AK4PFPuppi',forMET=False,doJer=True),jetType='AK4PFPuppi',isMC=True,forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv=12),CMSJMECalculators(configcreate(isMC=True,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='.',jetType='AK8PFPuppi',forMET=False,doJer=True),jetType='AK8PFPuppi',isMC=True,forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv=12),CMSJMECalculators(configcreate(isMC=True,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='.',jetType='AK4PFPuppi',forMET=True,doJer=True),jetType='AK4PFPuppi',isMC=True,forMET=True,PuppiMET=True,addHEM2018Issue=False,NanoAODv=12),GenPart_MomFirstCp(flavour='-5,-4,-3,-2,-1,1,2,3,4,5,6,-6,24,-24'), nanoprepro(), nanoTopcand_PFC_SV(),globalvar(), nanoTopevaluate_MultiScore(year = "+str(sample.year)+", modelMix_path='"+modelMix_path+"', modelRes_path='"+modelRes_path+"')"
                 else:
-                    modules = "MCweight_writer(), MET_Filter(year = "+str(sample.year)+"),JetVetoMaps_run3(year="+str(sample.year)+",EE="+str(sample.EE)+"),preselection(),PUreweight(year="+str(sample.year)+",EE="+str(sample.EE)+"),BTagSF(year="+str(sample.year)+",EE="+str(sample.EE)+"),GenPart_MomFirstCp(flavour='-5,-4,-3,-2,-1,1,2,3,4,5,6,-6,24,-24'), Idx_PFC_SV(), deltaR_PF_SV(), collectionMerger(input = ['PFCands'], output = 'PFCands', sortkey=lambda x: x.pt, reverse = True, selector = None, maxObjects = None), collectionMerger(input = ['SV'], output = 'SV', sortkey=lambda x: x.ntracks, reverse = True, selector = None, maxObjects = None), nanoprepro(), nanoTopcand_PFC_SV(), nanoTopevaluate_MultiScore(year = "+str(sample.year)+", modelMix_path='"+modelMix_path+"', modelRes_path='"+modelRes_path+"', mode= '"+mode_evaluate+"')" 
+                    modules = "MCweight_writer(), MET_Filter(year = "+str(sample.year)+"),JetVetoMaps_run3(year="+str(sample.year)+",EE="+str(sample.EE)+"),preselection(),PUreweight(year="+str(sample.year)+",EE="+str(sample.EE)+"),BTagSF(year="+str(sample.year)+",EE="+str(sample.EE)+"),GenPart_MomFirstCp(flavour='-5,-4,-3,-2,-1,1,2,3,4,5,6,-6,24,-24'), nanoprepro(), nanoTopcand_PFC_SV(), nanoTopevaluate_MultiScore(year = "+str(sample.year)+", modelMix_path='"+modelMix_path+"', modelRes_path='"+modelRes_path+"')" 
 
             elif sample.year in [2022,2023] and not trota_2d:
                 if calcualte_systematics:
@@ -272,9 +271,9 @@ if submit:
                 modules = "lumiMask(year = "+str(sample.year)+"), MET_Filter(year = "+str(sample.year)+"), preselection(), nanoTopcand(isMC=0), globalvar(), nanoTopevaluate_MultiScore(isMC=0, year = "+str(sample.year)+", modelMix_path='"+modelMix_path+"', modelRes_path='"+modelRes_path+"')"
             elif sample.year == 2022 and trota_2d:
                 if calcualte_systematics:
-                    modules = "lumiMask(year = "+str(sample.year)+"),MET_Filter(year = "+str(sample.year)+"),JetVetoMaps_run3(year="+str(sample.year)+",EE="+str(sample.EE)+"),preselection(),CMSJMECalculators(configcreate(isMC=False,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='"+sample.runP+"',jetType='AK4PFPuppi',forMET=False,doJer=True),jetType='AK4PFPuppi',isMC=False,forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv=12),CMSJMECalculators(configcreate(isMC=False,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='"+sample.runP+"',jetType='AK8PFPuppi',forMET=False,doJer=True),jetType='AK8PFPuppi',isMC=False,forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv=12),CMSJMECalculators(configcreate(isMC=False,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='"+sample.runP+"',jetType='AK4PFPuppi',forMET=True,doJer=True),jetType='AK4PFPuppi',isMC=False,forMET=True,PuppiMET=True,addHEM2018Issue=False,NanoAODv=12), Idx_PFC_SV(), deltaR_PF_SV(), collectionMerger(input = ['PFCands'], output = 'PFCands', sortkey=lambda x: x.pt, reverse = True, selector = None, maxObjects = None), collectionMerger(input = ['SV'], output = 'SV', sortkey=lambda x: x.ntracks, reverse = True, selector = None, maxObjects = None), nanoTopcand_PFC_SV(isMC= 0),globalvar(), nanoTopevaluate_MultiScore(isMC = 0, year = "+str(sample.year)+", modelMix_path='"+modelMix_path+"', modelRes_path='"+modelRes_path+"', mode = '"+mode_evaluate+"')"
+                    modules = "lumiMask(year = "+str(sample.year)+"),MET_Filter(year = "+str(sample.year)+"),JetVetoMaps_run3(year="+str(sample.year)+",EE="+str(sample.EE)+"),preselection(),CMSJMECalculators(configcreate(isMC=False,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='"+sample.runP+"',jetType='AK4PFPuppi',forMET=False,doJer=True),jetType='AK4PFPuppi',isMC=False,forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv=12),CMSJMECalculators(configcreate(isMC=False,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='"+sample.runP+"',jetType='AK8PFPuppi',forMET=False,doJer=True),jetType='AK8PFPuppi',isMC=False,forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv=12),CMSJMECalculators(configcreate(isMC=False,year="+str(sample.year)+",EE="+str(sample.EE)+",runPeriod='"+sample.runP+"',jetType='AK4PFPuppi',forMET=True,doJer=True),jetType='AK4PFPuppi',isMC=False,forMET=True,PuppiMET=True,addHEM2018Issue=False,NanoAODv=12), nanoTopcand_PFC_SV(isMC= 0),globalvar(), nanoTopevaluate_MultiScore(isMC = 0, year = "+str(sample.year)+", modelMix_path='"+modelMix_path+"', modelRes_path='"+modelRes_path+"')"
                 else:
-                    modules = "lumiMask(year = "+str(sample.year)+"),MET_Filter(year = "+str(sample.year)+"),JetVetoMaps_run3(year="+str(sample.year)+",EE="+str(sample.EE)+"),preselection(), Idx_PFC_SV(), deltaR_PF_SV(), collectionMerger(input = ['PFCands'], output = 'PFCands', sortkey=lambda x: x.pt, reverse = True, selector = None, maxObjects = None), collectionMerger(input = ['SV'], output = 'SV', sortkey=lambda x: x.ntracks, reverse = True, selector = None, maxObjects = None), nanoTopcand_PFC_SV(isMC= 0),globalvar(), nanoTopevaluate_MultiScore(isMC = 0, year = "+str(sample.year)+", modelMix_path='"+modelMix_path+"', modelRes_path='"+modelRes_path+"', mode = '"+mode_evaluate+"')"
+                    modules = "lumiMask(year = "+str(sample.year)+"),MET_Filter(year = "+str(sample.year)+"),JetVetoMaps_run3(year="+str(sample.year)+",EE="+str(sample.EE)+"),preselection(),  nanoTopcand_PFC_SV(isMC= 0),globalvar(), nanoTopevaluate_MultiScore(isMC = 0, year = "+str(sample.year)+", modelMix_path='"+modelMix_path+"', modelRes_path='"+modelRes_path+"')"
                     
             elif sample.year in [2022,2023] and not trota_2d: 
                 if calcualte_systematics:
@@ -282,36 +281,37 @@ if submit:
                 else:
                     modules = "lumiMask(year = "+str(sample.year)+"),MET_Filter(year = "+str(sample.year)+"),JetVetoMaps_run3(year="+str(sample.year)+",EE="+str(sample.EE)+"),preselection(),nanoTopcand(isMC=False),globalvar(), nanoTopevaluate_MultiScore(isMC=0,year = "+str(sample.year)+", modelMix_path='"+modelMix_path+"', modelRes_path='"+modelRes_path+"')"
         # print('sample is: ', sample.dataset)
-        files = get_files_string(sample, 'phys03')
-        if debug: files = files[:1] 
-        print(len(files))
+        if hasattr(sample, 'dataset'):
+            files = get_files_string(sample, 'global')
+            if debug: files = files[:1] 
+            print(len(files))
 
-        for i, f in enumerate(files):
-            print("....submitting file", i, end='\r')
-            outfolder_crabscript_i = outfolder_tmp+sample.label+"/file"+str(i)+"/"
-            running_subfolder_file = running_subfolder + "/file" + str(i)
-            if not os.path.exists(running_subfolder_file):
-                os.makedirs(running_subfolder_file)
-            write_crab_script(sample, f, modules, running_subfolder_file, calcualte_systematics, sample.year, debug)
-            runner_writer(running_subfolder_file, i, remote_folder_name, sample_folder, launchtime, outfolder_crabscript_i)
-            sub_writer(running_subfolder_file, running_subfolder+"/condor", sample.label+"_file"+str(i), sample.label)
-            if not debug :
-                out = os.popen("condor_submit " + running_subfolder_file + "/condor.sub")
-                with open(running_subfolder+"/jobsId.txt", "a") as file:
-                    file.write("\n file "+str(i)+"\n"+ out.read())
-        
-        with open(running_folder+"/"+sample.label+"/types_jobs.txt", "a") as file:
-            if trota_2d and calcualte_systematics:
-                file.write("\nsample: "+ sample.label +" trota2D with syst. Mode: "+mode_evaluate+"  Launchtime: "+ launchtime)
-            elif trota_2d and not calcualte_systematics: 
-                file.write("\nsample: "+ sample.label +" trota2D with no syst. Mode: "+mode_evaluate+"  Launchtime: "+ launchtime)
-            elif not trota_2d and calcualte_systematics:
-                file.write("\nsample: "+ sample.label +" trota standard with syst. Launchtime: "+launchtime)
-            elif not trota_2d and not calcualte_systematics: 
-                file.write("\nsample: "+ sample.label +" trota standard no syst. Launchtime: "+launchtime)
-        print("##########################################################################")
-        print("\033[92mSUBMITTED\033[0m", sample.label)
-        print("##########################################################################\n")
+            for i, f in enumerate(files):
+                print("....submitting file", i, end='\r')
+                outfolder_crabscript_i = outfolder_tmp+sample.label+"/file"+str(i)+"/"
+                running_subfolder_file = running_subfolder + "/file" + str(i)
+                if not os.path.exists(running_subfolder_file):
+                    os.makedirs(running_subfolder_file)
+                write_crab_script(sample, f, modules, running_subfolder_file, calcualte_systematics, sample.year, debug)
+                runner_writer(running_subfolder_file, i, remote_folder_name, sample_folder, launchtime, outfolder_crabscript_i)
+                sub_writer(running_subfolder_file, running_subfolder+"/condor", sample.label+"_file"+str(i), sample.label)
+                if not debug :
+                    out = os.popen("condor_submit " + running_subfolder_file + "/condor.sub")
+                    with open(running_subfolder+"/jobsId.txt", "a") as file:
+                        file.write("\n file "+str(i)+"\n"+ out.read())
+            
+            with open(running_folder+"/"+sample.label+"/types_jobs.txt", "a") as file:
+                if trota_2d and calcualte_systematics:
+                    file.write("\nsample: "+ sample.label +" trota2D with syst.  Launchtime: "+ launchtime)
+                elif trota_2d and not calcualte_systematics: 
+                    file.write("\nsample: "+ sample.label +" trota2D with no syst. Launchtime: "+ launchtime)
+                elif not trota_2d and calcualte_systematics:
+                    file.write("\nsample: "+ sample.label +" trota standard with syst. Launchtime: "+launchtime)
+                elif not trota_2d and not calcualte_systematics: 
+                    file.write("\nsample: "+ sample.label +" trota standard no syst. Launchtime: "+launchtime)
+            print("##########################################################################")
+            print("\033[92mSUBMITTED\033[0m", sample.label)
+            print("##########################################################################\n")
 
 if resubmit:
     print("\n################################################ RESUBMITTING mode")

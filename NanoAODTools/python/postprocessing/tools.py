@@ -136,7 +136,7 @@ def top_cluster_excl(top, trs):
     n_up, n_down = np.zeros(len(top_over_trs)), np.zeros(len(top_over_trs))
     n_up_over_trs, n_down_over_trs = np.zeros(len(top_over_trs)), np.zeros(len(top_over_trs))
     #loop sui top over trs --> partendo dal best
-    idx_top_toskip = [] 
+    idx_top_toskip = []
     i = 0 
     #print('idx_top_toskip ', idx_top_toskip)
     #print('len top over trs ', len(top_over_trs))
@@ -524,24 +524,11 @@ def top3j1fj(fj, j0, j1, j2, s=None, dr0=None, dr1=None, dr2=None):
 
 
 def get_jet(jets):
-    goodjet = list(filter(lambda x : x.jetId and x.pt>25 and abs(x.eta)<2.7 , jets))
-    # idx_good = 0
-    # for idx_jet in range(len(jets)):
-    #     if jets[idx_jet] in goodjet:
-    #         idx_good = goodjet.index(jets[idx_jet])
-    #         goodjet[idx_good].jetIdx = idx_jet
-            # idx_good += 1
-    return goodjet
+    return list(filter(lambda x : x.jetId and x.pt>25 and abs(x.eta)<2.7 , jets))
+    
 def get_fatjet(fatjets):
-    goodfatjets = list(filter(lambda x : x.jetId and abs(x.eta) < 2.7, fatjets))
-    # idx_good = 0
-    # for idx_fj in range(len(fatjets)):
-    #     if fatjets[idx_fj] in goodfatjets:
-    #         idx_good = goodfatjets.index(fatjets[idx_fj])
-    #         goodfatjets[idx_good].fatjetIdx = idx_fj
-    #         # idx_good += 1
-    return goodfatjets
-
+    return list(filter(lambda x : x.jetId and abs(x.eta) < 2.7, fatjets))
+    
 def presel(jets, fatjets): #returns 2 collections of jets and fatjets
     goodjets = get_jet(jets)
     goodfatjets = get_fatjet(fatjets)

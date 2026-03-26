@@ -35,8 +35,8 @@ def fill_mass(mass_dnn, idx_top, j0, j1, j2, fj):
        # mass_dnn[idx_top, 4] = variables_cluster[2]
     return mass_dnn
 
-def fill_fj(fj_dnn, fj, idx_top, year):
-    if year=='2018': 
+def fill_fj(year, fj_dnn, fj, idx_top):
+    if year==2018: 
        fj_dnn[idx_top, 0]  = fj.area
        fj_dnn[idx_top, 1]  = fj.btagDeepB
        fj_dnn[idx_top, 2]  = fj.deepTagMD_TvsQCD
@@ -49,7 +49,7 @@ def fill_fj(fj_dnn, fj, idx_top, year):
        fj_dnn[idx_top, 9]  = fj.mass
        fj_dnn[idx_top, 10] = fj.phi
        fj_dnn[idx_top, 11] = fj.pt
-    elif year == '2022': 
+    elif year == 2022: 
         fj_dnn[idx_top, 0] = fj.area
         fj_dnn[idx_top, 1] = fj.btagDeepB
         fj_dnn[idx_top, 2] = fj.particleNetWithMass_TvsQCD 
@@ -64,8 +64,8 @@ def fill_fj(fj_dnn, fj, idx_top, year):
         fj_dnn[idx_top, 11] = fj.pt
     return fj_dnn
 
-def fill_jets(jets_dnn, j0, j1, j2, sumjet, fj_phi, fj_eta, idx_top, year): 
-    if year=='2018':
+def fill_jets(year, jets_dnn, j0, j1, j2, sumjet, fj_phi, fj_eta, idx_top): 
+    if year==2018:
        jets_dnn[idx_top, 0, 0] = j0.area
        jets_dnn[idx_top, 0, 1] = j0.btagDeepB
        jets_dnn[idx_top, 0, 2] = deltaEta(j0.eta, sumjet.Eta())#j0.#delta eta 3jets-jet
@@ -152,9 +152,13 @@ def boost_PFC(pt_top,eta_top,phi_top,M_top,pt_PFC,eta_PFC,phi_PFC,M_PFC):
     return pt_new, eta_new, phi_new, mass_new
 
 
-def fill_PFCs(n_PFCs, PFCs_dnn, PFCs, idx_top, pt_top, eta_top, phi_top, M_top): 
+def fill_PFCs(n_PFCs, PFCs_dnn, PFCs, idx_top, top): 
     for i,particle in enumerate(PFCs):
         if i<n_PFCs: #minore e non minore e uguale perchè parte da 0
+            phi_top = top.phi
+            eta_top = top.eta
+            pt_top  = top.pt
+            M_top   = top.mass
             pt_boost, eta_boost, phi_boost, mass_boost = boost_PFC(pt_top, eta_top, phi_top, M_top, particle.pt ,particle.eta, particle.phi, particle.mass)
             PFCs_dnn[idx_top, i, 0] = pt_boost
             PFCs_dnn[idx_top, i, 1] = eta_boost
@@ -171,9 +175,13 @@ def fill_PFCs(n_PFCs, PFCs_dnn, PFCs, idx_top, pt_top, eta_top, phi_top, M_top):
             PFCs_dnn[idx_top, i, 12] = particle.IsInFatJet
     return PFCs_dnn
     
-def fill_SVs(n_SVs, SVs_dnn, SVs, idx_top, pt_top, eta_top, phi_top, M_top):
+def fill_SVs(n_SVs, SVs_dnn, SVs, idx_top,top):
     for i, particle in enumerate(SVs):
         if i < n_SVs:
+            phi_top = top.phi
+            eta_top = top.eta
+            pt_top  = top.pt
+            M_top   = top.mass
             pt_boost, eta_boost, phi_boost, mass_boost = boost_PFC(pt_top, eta_top, phi_top, M_top, particle.pt, particle.eta, particle.phi, particle.mass)
             SVs_dnn[idx_top, i, 0]   = pt_boost
             SVs_dnn[idx_top, i, 1]  = eta_boost
@@ -206,17 +214,16 @@ def fill_SVs(n_SVs, SVs_dnn, SVs, idx_top, pt_top, eta_top, phi_top, M_top):
 
 
 class nanoTopevaluate_MultiScore(Module):
-    def __init__(self, modelMix_path, modelRes_path, isMC=1, resolved = True, year = '2022', mode='difficult'):
+    def __init__(self, modelMix_path, modelRes_path, isMC=1, year=2022, pfc = False, sv = False):
         self.modelMix_path = modelMix_path
         self.modelRes_path = modelRes_path
         self.modelMix      = tf.keras.models.load_model(modelMix_path)
         self.modelRes      = tf.keras.models.load_model(modelRes_path)
         self.isMC = isMC
-        self.resolved = resolved
         self.year = year
-        self.mode = mode
+        self.pfc = pfc
+        self.sv = sv
         pass
-
 
     def beginJob(self):
         pass
@@ -257,31 +264,31 @@ class nanoTopevaluate_MultiScore(Module):
         
         tophighpt             = Collection(event, "TopMixed")
         toplowpt              = Collection(event, "TopResolved")
-
-        PFCands      = Collection(event,"PFCands")
-        SV_vertexes  = Collection(event, "SV")
-
-        Indexes_pfc  = Collection(event, "IndexesPFC")
-        Indexes_sv   = Collection(event, "IndexesSV") 
+        if self.pfc:
+            
+            PFCands      = Collection(event,"PFCands")
+            Indexes_pfc  = Collection(event, "IndexesPFC") 
+            n_PFCs = 20
+        if self.sv:
+            SV_vertexes  = Collection(event, "SV")
+            Indexes_sv   = Collection(event, "IndexesSV") 
+            n_SVs = 3
       
         
         # loop su High Pt candidates per valutare lo score con i modelli corrispondenti
         #if self.year == 2018:
          #   fj_dnn      = np.zeros((int(len(tophighpt)), 12)) 
         #elif self.year == 2022:
-        if self.mode=='easy':
-            n_SVs, n_PFCs = 1,5
-        elif self.mode=='medium': 
-            n_SVs, n_PFCs = 2,10
-        elif self.mode=='difficult':
-            n_SVs, n_PFCs = 3,20
-        else: 
-            print('ERROR: please enter a correct type of mode.')
-        fj_dnn      = np.zeros((len(tophighpt), 12))
-        jets_dnn    = np.zeros((len(tophighpt), 3, 8))        
-        mass_dnn    = np.zeros((len(tophighpt), 3))
-        PFC_dnn            = np.zeros((len(tophighpt),n_PFCs,13))
-        SVs_dnn            = np.zeros((len(tophighpt),n_SVs, 12))
+        if self.year == 2018:
+            fj_dnn      = np.zeros((int(len(tophighpt)), 12))
+        elif self.year in [2022,2023]:
+            fj_dnn      = np.zeros((int(len(tophighpt)), 12))
+        jets_dnn    = np.zeros((int(len(tophighpt)), 3, 8))        
+        mass_dnn    = np.zeros((int(len(tophighpt)), 3))
+        if self.pfc:
+            PFC_dnn     = np.zeros((len(tophighpt),n_PFCs,13))
+        if self.sv:
+            SVs_dnn     = np.zeros((len(tophighpt),n_SVs, 12))
 
 
         for i, top in enumerate(tophighpt):
@@ -289,8 +296,8 @@ class nanoTopevaluate_MultiScore(Module):
                 j0, j1      = goodjets[top.idxJet0],goodjets[top.idxJet1]
                 fj          = goodfatjets[top.idxFatJet]
                 sumjet      = j0.p4()+j1.p4()
-                jets_dnn    = fill_jets(jets_dnn = jets_dnn, j0=j0, j1=j1, j2=None, sumjet = sumjet,  fj_phi= fj.phi, fj_eta=fj.eta, idx_top=i, year = self.year)
-                fj_dnn      = fill_fj(fj_dnn= fj_dnn, fj= fj, idx_top= i, year = self.year)
+                jets_dnn    = fill_jets(self.year, jets_dnn = jets_dnn, j0=j0, j1=j1, j2=None, sumjet = sumjet,  fj_phi= fj.phi, fj_eta=fj.eta, idx_top=i)
+                fj_dnn      = fill_fj(self.year, fj_dnn= fj_dnn, fj= fj, idx_top= i)
                 mass_dnn    = fill_mass(mass_dnn=mass_dnn, idx_top=i, j0=j0, j1=j1, j2 =None, fj = fj)
             
             elif top.idxFatJet==-1:
@@ -298,52 +305,44 @@ class nanoTopevaluate_MultiScore(Module):
                 fj          = ROOT.TLorentzVector()
                 fj.SetPtEtaPhiM(0,0,0,0)
                 sumjet      = j0.p4()+j1.p4()+j2.p4()
-                jets_dnn    = fill_jets(jets_dnn= jets_dnn, j0 = j0, j1 = j1, j2= j2, sumjet= sumjet,fj_phi= fj.Phi(), fj_eta= fj.Eta(), idx_top= i, year = self.year)
+                jets_dnn    = fill_jets(self.year, jets_dnn= jets_dnn, j0 = j0, j1 = j1, j2= j2, sumjet= sumjet,fj_phi= fj.Phi(), fj_eta= fj.Eta(), idx_top= i)
                 mass_dnn    = fill_mass(mass_dnn=mass_dnn, idx_top=i, j0=j0, j1=j1, j2 =j2, fj = None)
             else:
 
                 j0, j1, j2  = goodjets[top.idxJet0],goodjets[top.idxJet1],goodjets[top.idxJet2]
                 fj          = goodfatjets[top.idxFatJet]
                 sumjet      = j0.p4() + j1.p4() +j2.p4()
-                jets_dnn    = fill_jets(jets_dnn=jets_dnn, j0= j0,j1= j1,j2= j2,sumjet= sumjet,fj_phi= fj.phi,fj_eta= fj.eta,idx_top= i, year = self.year)
-                fj_dnn      = fill_fj(fj_dnn= fj_dnn,fj= fj, idx_top=i, year = self.year)
+                jets_dnn    = fill_jets(self.year, jets_dnn=jets_dnn, j0= j0,j1= j1,j2= j2,sumjet= sumjet,fj_phi= fj.phi,fj_eta= fj.eta,idx_top= i)
+                fj_dnn      = fill_fj(self.year,fj_dnn= fj_dnn,fj= fj, idx_top=i)
                 mass_dnn    = fill_mass(mass_dnn=mass_dnn, idx_top=i, j0=j0, j1=j1, j2 =j2, fj = fj)
-           
-            PFCs=[]
-            pfc_indexes=[]
-            sv_indexes = []
-            SVs = []
+            if self.pfc:
+                PFCs=[]
+                pfc_indexes=[]
+                for idx in Indexes_pfc:    
+                    pfc_indexes.append(idx.idxPFC)
+                start_index_pfc = pfc_indexes.index(-(i+1))
+                end_index_pfc = pfc_indexes.index(-(i+2))
+                # print(start_index_pfc, end_index_pfc)
+                idx_pfc_to_append = pfc_indexes[start_index_pfc+1:end_index_pfc]
+                for particle in PFCands: #ciclo sulle particles
+                    if particle.Idx in idx_pfc_to_append:
+                        PFCs.append(particle)
 
-            for idx in Indexes_pfc:    
-                #print(idx.idxPFC)
-                pfc_indexes.append(idx.idxPFC)
-            
-            for idx in Indexes_sv:
-                sv_indexes.append(idx.idxSV)
-
-            # print('pfc indexes: ', pfc_indexes)
-            
-            start_index_pfc = pfc_indexes.index(-(i+1))
-            end_index_pfc = pfc_indexes.index(-(i+2))
-            # print(start_index_pfc, end_index_pfc)
-            idx_pfc_to_append = pfc_indexes[start_index_pfc+1:end_index_pfc]
-
-            start_index_sv = sv_indexes.index(-(i + 1))
-            end_index_sv   = sv_indexes.index(-(i + 2))
-            idx_sv_to_append = sv_indexes[start_index_sv+1 : end_index_sv]
-            # print(sv_indexes)
-            # print(start_index_sv, end_index_sv)
-            for particle in PFCands: #ciclo sulle particles
-                if particle.Idx in idx_pfc_to_append:
-                    PFCs.append(particle)
-            
-            for vertex in SV_vertexes:
-                if vertex.Idx in idx_sv_to_append:
-                    SVs.append(vertex)
-            # print(SVs)
-            fill_PFCs(n_PFCs= n_PFCs, PFCs_dnn= PFC_dnn, PFCs= PFCs, idx_top= i, pt_top= top.pt, eta_top= top.eta, phi_top= top.phi, M_top= top.mass)
-
-            fill_SVs(n_SVs= n_SVs, SVs_dnn= SVs_dnn, SVs= SVs, idx_top= i, pt_top= top.pt, eta_top= top.eta, phi_top= top.phi, M_top= top.mass)
+            if self.sv:
+                sv_indexes = []
+                SVs = []
+                for idx in Indexes_sv:
+                    sv_indexes.append(idx.idxSV) 
+                start_index_sv = sv_indexes.index(-(i + 1))
+                end_index_sv   = sv_indexes.index(-(i + 2))
+                idx_sv_to_append = sv_indexes[start_index_sv+1 : end_index_sv]
+                for vertex in SV_vertexes:
+                    if vertex.Idx in idx_sv_to_append:
+                        SVs.append(vertex)
+            if self.pfc:
+                fill_PFCs(n_PFCs= n_PFCs, PFCs_dnn= PFC_dnn, PFCs= PFCs, idx_top= i,top = top)
+            if self.sv:
+                fill_SVs(n_SVs= n_SVs, SVs_dnn= SVs_dnn, SVs= SVs, idx_top= i,top = top)
 
        
  
@@ -351,10 +350,14 @@ class nanoTopevaluate_MultiScore(Module):
         # Calculate Scores for several models #
         scores = []
         if len(tophighpt)!=0:
-            # top_score2      = models["score2"].predict({"fatjet":fj_dnn, "jet": jets_dnn,  "top_mass": mass_dnn[:,:2]}).flatten().tolist()
-            
-            # model = models['mixed']
-            scores = self.modelMix({"fatjet": fj_dnn, "jet": jets_dnn, "top": mass_dnn, 'pfc': PFC_dnn, 'sv': SVs_dnn}).numpy()
+            if self.pfc and self.sv:
+                scores = self.modelMix({"fatjet": fj_dnn, "jet": jets_dnn, "top": mass_dnn, 'pfc': PFC_dnn, 'sv': SVs_dnn}).numpy()
+            elif self.pfc and not self.sv:
+                scores = self.modelMix({"fatjet": fj_dnn, "jet": jets_dnn, "top": mass_dnn, 'pfc': PFC_dnn}).numpy()
+            elif not self.pfc and self.sv:
+                scores = self.modelMix({"fatjet": fj_dnn, "jet": jets_dnn, "top": mass_dnn, 'sv': SVs_dnn}).numpy()
+            else:
+                scores = self.modelMix({"fatjet": fj_dnn, "jet": jets_dnn, "top": mass_dnn}).numpy()
            
             prob_true_tt = (scores[:,1]).flatten().tolist()
             prob_false_tt = (scores[:,0]).flatten().tolist()
@@ -376,11 +379,12 @@ class nanoTopevaluate_MultiScore(Module):
        
 
         jets_dnn_res = np.zeros((int(len(toplowpt)), 3, 8)) 
-        
-        PFC_dnn_res            = np.zeros((len(toplowpt),n_PFCs,13))
-        SVs_dnn_res            = np.zeros((len(toplowpt),n_SVs, 12))
+        if self.pfc:
+            PFC_dnn_res            = np.zeros((len(toplowpt),n_PFCs,13))
+        if self.sv:
+            SVs_dnn_res            = np.zeros((len(toplowpt),n_SVs, 12))
         mass_dnn_res    = np.zeros((len(toplowpt), 3))
-        idx_resolved = 0
+        # idx_resolved = 0
         for i, top in enumerate(toplowpt):
            
                 
@@ -388,40 +392,37 @@ class nanoTopevaluate_MultiScore(Module):
             fj = ROOT.TLorentzVector()
             fj.SetPtEtaPhiM(0,0,0,0)
             sumjet = j0.p4()+j1.p4()+j2.p4()
-            jets_dnn = fill_jets(jets_dnn=jets_dnn_res, j0= j0,j1= j1,j2= j2,sumjet= sumjet,fj_phi= fj.Phi(),fj_eta= fj.Eta(),idx_top= idx_resolved, year = self.year)
-            mass_dnn    = fill_mass(mass_dnn=mass_dnn_res, idx_top=idx_resolved, j0=j0, j1=j1, j2 =j2, fj = None)
-            PFCs=[]
-            pfc_indexes=[]
-            sv_indexes = []
-            SVs = []
-
-            for idx in Indexes_pfc:    
-                #print(idx.idxPFC)
-                pfc_indexes.append(idx.idxPFC)
-
-            for idx in Indexes_sv:
-                sv_indexes.append(idx.idxSV)
-
-            start_index_pfc = pfc_indexes.index(-(i+1))
-            end_index_pfc = pfc_indexes.index(-(i+2))
-            idx_pfc_to_append = pfc_indexes[start_index_pfc+1:end_index_pfc]
-
-            start_index_sv = sv_indexes.index(-(i + 1))
-            end_index_sv   = sv_indexes.index(-(i + 2))
-            idx_sv_to_append = sv_indexes[start_index_sv+1 : end_index_sv]
-
-            for particle in PFCands: #ciclo sulle particles
-                if particle.Idx in idx_pfc_to_append:
-                    PFCs.append(particle)
-
-            for vertex in SV_vertexes:
-                if vertex.Idx in idx_sv_to_append:
-                    SVs.append(vertex)
-
-            fill_PFCs(n_PFCs= n_PFCs, PFCs_dnn= PFC_dnn_res, PFCs= PFCs, idx_top= idx_resolved, pt_top= top.pt, eta_top= top.eta, phi_top= top.phi, M_top= top.mass)
-
-            fill_SVs(n_SVs= n_SVs, SVs_dnn= SVs_dnn_res, SVs= SVs, idx_top= idx_resolved, pt_top= top.pt, eta_top= top.eta, phi_top= top.phi, M_top= top.mass)
-            idx_resolved += 1
+            jets_dnn = fill_jets(self.year,jets_dnn=jets_dnn_res, j0= j0,j1= j1,j2= j2,sumjet= sumjet,fj_phi= fj.Phi(),fj_eta= fj.Eta(),idx_top= i)
+            mass_dnn    = fill_mass(mass_dnn=mass_dnn_res, idx_top=i, j0=j0, j1=j1, j2 =j2, fj = None)
+            
+            if self.pfc:
+                PFCs=[]
+                pfc_indexes=[]
+                for idx in Indexes_pfc:    
+                    pfc_indexes.append(idx.idxPFC)
+                start_index_pfc = pfc_indexes.index(-(i+1))
+                end_index_pfc = pfc_indexes.index(-(i+2))
+                idx_pfc_to_append = pfc_indexes[start_index_pfc+1:end_index_pfc]
+                for particle in PFCands: #ciclo sulle particles
+                    if particle.Idx in idx_pfc_to_append:
+                        PFCs.append(particle)
+            
+            if self.sv: 
+                sv_indexes = []
+                SVs = []
+                for idx in Indexes_sv:
+                    sv_indexes.append(idx.idxSV)
+                start_index_sv = sv_indexes.index(-(i + 1))
+                end_index_sv   = sv_indexes.index(-(i + 2))
+                idx_sv_to_append = sv_indexes[start_index_sv+1 : end_index_sv]
+                for vertex in SV_vertexes:
+                    if vertex.Idx in idx_sv_to_append:
+                        SVs.append(vertex)
+            if self.pfc: 
+                fill_PFCs(n_PFCs= n_PFCs, PFCs_dnn= PFC_dnn_res, PFCs= PFCs, idx_top= i, top = top)
+            if self.sv:
+                fill_SVs(n_SVs= n_SVs, SVs_dnn= SVs_dnn_res, SVs= SVs, idx_top= i, top = top)
+            # idx_resolved += 1
 
 
         # print('jets dnn: ', jets_dnn_res.shape)
@@ -431,11 +432,17 @@ class nanoTopevaluate_MultiScore(Module):
 
 
         if len(toplowpt)!=0:
-            # modelRes = models['resolved']
-            top_score_DNN = self.modelRes({"jet": jets_dnn_res,'top': mass_dnn_res,'pfc': PFC_dnn_res, 'sv': SVs_dnn_res}).numpy()
-            prob_true_tt_res = (top_score_DNN[:,1]).flatten().tolist()
-            prob_false_tt_res= (top_score_DNN[:,0]).flatten().tolist()
-            prob_qcd_res = (top_score_DNN[:,2]).flatten().tolist()
+            if self.pfc and self.sv:
+                scores_res_ = self.modelRes({"jet": jets_dnn_res,'top': mass_dnn_res,'pfc': PFC_dnn_res, 'sv': SVs_dnn_res}).numpy()
+            elif self.pfc and not self.sv:
+                scores_res_ = self.modelRes({"jet": jets_dnn_res,'top': mass_dnn_res,'pfc': PFC_dnn_res }).numpy()
+            elif not self.pfc and self.sv:
+                scores_res_ = self.modelRes({"jet": jets_dnn_res,'top': mass_dnn_res, 'sv': SVs_dnn_res}).numpy()
+            else:
+                scores_res_ = self.modelRes({"jet": jets_dnn_res,'top': mass_dnn_res}).numpy()
+            prob_true_tt_res = (scores_res_[:,1]).flatten().tolist()
+            prob_false_tt_res= (scores_res_[:,0]).flatten().tolist()
+            prob_qcd_res = (scores_res_[:,2]).flatten().tolist()
         else:
             prob_false_tt_res, prob_true_tt_res, prob_qcd_res  = [], [], []
 

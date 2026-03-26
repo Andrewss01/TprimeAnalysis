@@ -19,8 +19,8 @@ TopResolved2022             = "model_TopResolved_2022.h5"
 TopResolved2018             = "DNN_phase1_test_lowpt_DNN.h5"
 
 
-TopMixed2022_TROTA2D       = "model_TopMixed_2022_TROTA2D_CNN.h5"
-TopResolved2022_TROTA2D    = "model_TopResolved_2022_TROTA2D_DNN.h5"
+TopMixed2022_TROTA2D       = 'model_TopMixed_2022_TROTA2D_ptcut.h5'
+TopResolved2022_TROTA2D    =  'model_TopResolved_2022_TROTA2D_ptcut.h5'
 
 models                      = {}
 

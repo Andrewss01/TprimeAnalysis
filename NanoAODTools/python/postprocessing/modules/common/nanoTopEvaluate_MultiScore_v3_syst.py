@@ -396,18 +396,18 @@ def fill_SVs(n_SVs, SVs_dnn, SVs, idx_top,top, scenario):
 
 
 class nanoTopevaluate_MultiScore(Module):
-    def __init__(self, modelMix_path, modelRes_path, isMC=1, year=2022, mode = 'difficult'):
+    def __init__(self, modelMix_path, modelRes_path, isMC=1, year=2022, pfc = False, sv = False):
         self.modelMix_path = modelMix_path
         self.modelRes_path = modelRes_path
         self.modelMix      = tf.keras.models.load_model(modelMix_path)
         self.modelRes      = tf.keras.models.load_model(modelRes_path)
         self.isMC = isMC
         self.year = year
-        self.mode = mode 
+        self.pfc = pfc
+        self.sv = sv
         if isMC : self.scenarios = ["nominal", "jesTotalup", "jesTotaldown", "jerup", "jerdown"]
         else: self.scenarios = ["nominal"]
         pass
- 
 
     def beginJob(self):
         pass
@@ -448,20 +448,17 @@ class nanoTopevaluate_MultiScore(Module):
         tophighpt             = Collection(event, "TopMixed")
         toplowpt              = Collection(event, "TopResolved")
         # tophighpt = tophighpt[0:1]
-        PFCands      = Collection(event,"PFCands")
-        SV_vertexes  = Collection(event, "SV")
+        if self.pfc:
 
-        Indexes_pfc  = Collection(event, "IndexesPFC")
-        Indexes_sv   = Collection(event, "IndexesSV") 
-      
-        if self.mode=='easy':
-            n_SVs, n_PFCs = 1,5
-        elif self.mode=='medium': 
-            n_SVs, n_PFCs = 2,10
-        elif self.mode=='difficult':
-            n_SVs, n_PFCs = 3,20
-        else: 
-            print('ERROR: please enter a correct type of mode.')
+            PFCands      = Collection(event,"PFCands")
+            Indexes_pfc  = Collection(event, "IndexesPFC") 
+            n_PFCs = 20
+        if self.sv:
+            SV_vertexes  = Collection(event, "SV")
+            Indexes_sv   = Collection(event, "IndexesSV") 
+            n_SVs = 3
+        # else: 
+        #     print('ERROR: please enter a correct type of mode.')
         # loop su High Pt candidates per valutare lo score con i modelli corrispondenti
         if self.year == 2018:
             fj_dnn      = {s: np.zeros((int(len(tophighpt)), 12)) for s in self.scenarios}
@@ -469,8 +466,10 @@ class nanoTopevaluate_MultiScore(Module):
             fj_dnn      = {s: np.zeros((int(len(tophighpt)), 12)) for s in self.scenarios}
         jets_dnn    = {s: np.zeros((int(len(tophighpt)), 3, 8)) for s in self.scenarios}
         mass_dnn    = {s: np.zeros((len(tophighpt), 3)) for s in self.scenarios}
-        PFC_dnn     = {s: np.zeros((len(tophighpt), n_PFCs, 13)) for s in self.scenarios}
-        SVs_dnn     = {s: np.zeros((len(tophighpt), n_SVs , 12)) for s in self.scenarios}
+        if self.pfc:
+            PFC_dnn     = {s: np.zeros((len(tophighpt), n_PFCs, 13)) for s in self.scenarios}
+        if self.sv:
+            SVs_dnn     = {s: np.zeros((len(tophighpt), n_SVs , 12)) for s in self.scenarios}
         # print('num top high is: ', len(tophighpt))
         # print('numt top low is: ', len(toplowpt))
 
@@ -480,7 +479,7 @@ class nanoTopevaluate_MultiScore(Module):
                 fj          = goodfatjets[top.idxFatJet]
                 sumjet      = j0.p4()+j1.p4()
                 for s in self.scenarios:
-                    jets_dnn[s]    = fill_jets(self.year, jets_dnn = jets_dnn[s], j0=j0, j1=j1, j2=0, sumjet = sumjet,  fj_phi= fj.phi, fj_eta=fj.eta, idx_top=i, scenario = s)
+                    jets_dnn[s]    = fill_jets(self.year, jets_dnn = jets_dnn[s], j0=j0, j1=j1, j2=None, sumjet = sumjet,  fj_phi= fj.phi, fj_eta=fj.eta, idx_top=i, scenario = s)
                     fj_dnn[s]      = fill_fj(self.year, fj_dnn[s], fj, i, scenario = s)
                     mass_dnn[s]    = fill_mass(mass_dnn=mass_dnn[s], idx_top=i, j0=j0, j1=j1, j2 =None, fj = fj, scenario = s)
             elif top.idxFatJet==-1:
@@ -500,40 +499,38 @@ class nanoTopevaluate_MultiScore(Module):
                     fj_dnn[s]      = fill_fj(self.year, fj_dnn[s], fj, i, scenario = s)
                     mass_dnn[s]    = fill_mass(mass_dnn=mass_dnn[s], idx_top=i, j0=j0, j1=j1, j2 =j2, fj = fj, scenario = s)
 
+            if self.pfc:
+                PFCs=[]
+                pfc_indexes=[]
+                for idx in Indexes_pfc:    
+                    pfc_indexes.append(idx.idxPFC)
+                start_index_pfc = pfc_indexes.index(-(i+1))
+                end_index_pfc = pfc_indexes.index(-(i+2))
+                idx_pfc_to_append = pfc_indexes[start_index_pfc+1:end_index_pfc]
+                for particle in PFCands: #ciclo sulle particles
+                    if particle.Idx in idx_pfc_to_append:
+                        PFCs.append(particle)
 
-            PFCs=[]
-            pfc_indexes=[]
-            sv_indexes = []
-            SVs = []
-
-            for idx in Indexes_pfc:    
-                
-                pfc_indexes.append(idx.idxPFC)
+            if self.sv:
+                sv_indexes = []
+                SVs = []
+                for idx in Indexes_sv:
+                    sv_indexes.append(idx.idxSV) 
+                start_index_sv = sv_indexes.index(-(i + 1))
+                end_index_sv   = sv_indexes.index(-(i + 2))
+                idx_sv_to_append = sv_indexes[start_index_sv+1 : end_index_sv]
+                for vertex in SV_vertexes:
+                    if vertex.Idx in idx_sv_to_append:
+                        SVs.append(vertex)
             
-            for idx in Indexes_sv:
-                sv_indexes.append(idx.idxSV)
-
-            
-            start_index_pfc = pfc_indexes.index(-(i+1))
-            end_index_pfc = pfc_indexes.index(-(i+2))
-            idx_pfc_to_append = pfc_indexes[start_index_pfc+1:end_index_pfc]
-
-            start_index_sv = sv_indexes.index(-(i + 1))
-            end_index_sv   = sv_indexes.index(-(i + 2))
-            idx_sv_to_append = sv_indexes[start_index_sv+1 : end_index_sv]
-            for particle in PFCands: #ciclo sulle particles
-                if particle.Idx in idx_pfc_to_append:
-                    PFCs.append(particle)
-            
-            for vertex in SV_vertexes:
-                if vertex.Idx in idx_sv_to_append:
-                    SVs.append(vertex)
-            for s in self.scenarios:
-                PFC_dnn[s] = fill_PFCs(n_PFCs= n_PFCs, PFCs_dnn= PFC_dnn[s], PFCs= PFCs, idx_top= i,top = top, scenario = s)
-
-                SVs_dnn[s] = fill_SVs(n_SVs= n_SVs, SVs_dnn= SVs_dnn[s], SVs= SVs, idx_top= i,top = top, scenario = s)
-            if i == 0:
-                print(len(PFC_dnn['nominal'][0]))
+            if self.pfc or self.sv:
+                for s in self.scenarios:
+                    if self.pfc:
+                        PFC_dnn[s] = fill_PFCs(n_PFCs= n_PFCs, PFCs_dnn= PFC_dnn[s], PFCs= PFCs, idx_top= i,top = top, scenario = s)
+                    if self.sv:
+                        SVs_dnn[s] = fill_SVs(n_SVs= n_SVs, SVs_dnn= SVs_dnn[s], SVs= SVs, idx_top= i,top = top, scenario = s)
+            # if i == 0:
+            #     print(len(PFC_dnn['nominal'][0]))
 
        
         ####### SCORES ####### 
@@ -543,12 +540,22 @@ class nanoTopevaluate_MultiScore(Module):
             jets_dnn_concatenated = np.concatenate(list(jets_dnn.values()), axis=0)
             fj_dnn_concatenated = np.concatenate(list(fj_dnn.values()), axis=0)
             mass_dnn_concatenated = np.concatenate(list(mass_dnn.values()), axis=0)
-            PFC_dnn_concatenated = np.concatenate(list(PFC_dnn.values()), axis =0)
-            SVs_dnn_concatenated = np.concatenate(list(SVs_dnn.values()), axis =0)
+            
+            if self.pfc:
+                PFC_dnn_concatenated = np.concatenate(list(PFC_dnn.values()), axis =0)
+            if self.sv:
+                SVs_dnn_concatenated = np.concatenate(list(SVs_dnn.values()), axis =0)
             
             # scores_ = model({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy().flatten().tolist()
-            scores_ = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated, 'pfc': PFC_dnn_concatenated, 'sv': SVs_dnn_concatenated}).numpy()
-            # .flatten().tolist()
+            if self.pfc and self.sv:
+                scores_ = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated, 'pfc': PFC_dnn_concatenated, 'sv': SVs_dnn_concatenated}).numpy()
+            elif self.pfc and not self.sv:
+                scores_ = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated, 'pfc': PFC_dnn_concatenated}).numpy()
+            elif not self.pfc and self.sv:
+                scores_ = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated, 'sv': SVs_dnn_concatenated}).numpy()
+            else:
+                scores_ = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy()
+            
             scores = {}
 
 
@@ -576,10 +583,12 @@ class nanoTopevaluate_MultiScore(Module):
 
         # loop su Low Pt candidates per valutare lo score con i modelli corrispondenti
         
-        jets_dnn = {s: np.zeros((int(len(toplowpt)), 3, 8)) for s in self.scenarios}  
-        mass_dnn = {s: np.zeros((len(toplowpt), 3)) for s in self.scenarios}
-        PFC_dnn  = {s: np.zeros((len(toplowpt), n_PFCs, 13)) for s in self.scenarios}
-        SVs_dnn  = {s: np.zeros((len(toplowpt), n_SVs, 12)) for s in self.scenarios}
+        jets_dnn_res = {s: np.zeros((int(len(toplowpt)), 3, 8)) for s in self.scenarios}  
+        mass_dnn_res = {s: np.zeros((len(toplowpt), 3)) for s in self.scenarios}
+        if self.pfc:
+            PFC_dnn_res  = {s: np.zeros((len(toplowpt), n_PFCs, 13)) for s in self.scenarios}
+        if self.sv:
+            SVs_dnn_res  = {s: np.zeros((len(toplowpt), n_SVs, 12)) for s in self.scenarios}
         for i, top in enumerate(toplowpt):
 
             j0, j1, j2 = goodjets[top.idxJet0],goodjets[top.idxJet1],goodjets[top.idxJet2]
@@ -587,39 +596,39 @@ class nanoTopevaluate_MultiScore(Module):
             fj.SetPtEtaPhiM(0,0,0,0)
             sumjet = j0.p4()+j1.p4()+j2.p4()
             for s in self.scenarios:
-                jets_dnn[s] = fill_jets(self.year, jets_dnn[s], j0, j1, j2, sumjet, fj.Phi(), fj.Eta(), i, scenario = s)
-                mass_dnn[s]    = fill_mass(mass_dnn=mass_dnn[s], idx_top=i, j0=j0, j1=j1, j2 =j2, fj = None, scenario = s)
+                jets_dnn[s] = fill_jets(self.year, jets_dnn_res[s], j0, j1, j2, sumjet, fj.Phi(), fj.Eta(), i, scenario = s)
+                mass_dnn[s]    = fill_mass(mass_dnn=mass_dnn_res[s], idx_top=i, j0=j0, j1=j1, j2 =j2, fj = None, scenario = s)
 
-            PFCs=[]
-            pfc_indexes=[]
-            sv_indexes = []
-            SVs = []
-
-            for idx in Indexes_pfc:    
-                pfc_indexes.append(idx.idxPFC)
+            if self.pfc:
+                PFCs=[]
+                pfc_indexes=[]
+                for idx in Indexes_pfc:    
+                    pfc_indexes.append(idx.idxPFC)
+                start_index_pfc = pfc_indexes.index(-(i+1))
+                end_index_pfc = pfc_indexes.index(-(i+2))
+                idx_pfc_to_append = pfc_indexes[start_index_pfc+1:end_index_pfc]
+                for particle in PFCands: #ciclo sulle particles
+                    if particle.Idx in idx_pfc_to_append:
+                        PFCs.append(particle)
             
-            for idx in Indexes_sv:
-                sv_indexes.append(idx.idxSV)
+            if self.sv: 
+                sv_indexes = []
+                SVs = []
+                for idx in Indexes_sv:
+                    sv_indexes.append(idx.idxSV)
+                start_index_sv = sv_indexes.index(-(i + 1))
+                end_index_sv   = sv_indexes.index(-(i + 2))
+                idx_sv_to_append = sv_indexes[start_index_sv+1 : end_index_sv]
+                for vertex in SV_vertexes:
+                    if vertex.Idx in idx_sv_to_append:
+                        SVs.append(vertex)
 
-            
-            start_index_pfc = pfc_indexes.index(-(i+1))
-            end_index_pfc = pfc_indexes.index(-(i+2))
-            idx_pfc_to_append = pfc_indexes[start_index_pfc+1:end_index_pfc]
-
-            start_index_sv = sv_indexes.index(-(i + 1))
-            end_index_sv   = sv_indexes.index(-(i + 2))
-            idx_sv_to_append = sv_indexes[start_index_sv+1 : end_index_sv]
-            for particle in PFCands: #ciclo sulle particles
-                if particle.Idx in idx_pfc_to_append:
-                    PFCs.append(particle)
-            
-            for vertex in SV_vertexes:
-                if vertex.Idx in idx_sv_to_append:
-                    SVs.append(vertex)
-
-            for s in self.scenarios:
-                PFC_dnn[s] = fill_PFCs(n_PFCs= n_PFCs, PFCs_dnn= PFC_dnn[s], PFCs= PFCs, idx_top= i, top = top, scenario  =s)
-                SVs_dnn[s] =fill_SVs(n_SVs= n_SVs, SVs_dnn= SVs_dnn[s], SVs= SVs, idx_top= i, top = top, scenario = s)
+            if self.pfc or self.sv:
+                for s in self.scenarios:
+                    if self.pfc:
+                        PFC_dnn[s] = fill_PFCs(n_PFCs= n_PFCs, PFCs_dnn= PFC_dnn_res[s], PFCs= PFCs, idx_top= i, top = top, scenario  =s)
+                    if self.sv:
+                        SVs_dnn[s] =fill_SVs(n_SVs= n_SVs, SVs_dnn= SVs_dnn_res[s], SVs= SVs, idx_top= i, top = top, scenario = s)
 
         
         
@@ -628,10 +637,19 @@ class nanoTopevaluate_MultiScore(Module):
             # print(shape(PFC_dnn))
             jets_dnn_concatenated = np.concatenate(list(jets_dnn.values()), axis=0)
             mass_dnn_concatenated = np.concatenate(list(mass_dnn.values()), axis=0)
-            PFC_dnn_concatenated = np.concatenate(list(PFC_dnn.values()), axis =0)
-            
-            SVs_dnn_concatenated = np.concatenate(list(SVs_dnn.values()), axis =0)
-            scores_res_ = self.modelRes({"jet":jets_dnn_concatenated, "top":mass_dnn_concatenated, "pfc": PFC_dnn_concatenated, "sv":SVs_dnn_concatenated}).numpy()
+            if self.pfc:
+                PFC_dnn_concatenated = np.concatenate(list(PFC_dnn.values()), axis =0)
+            if self.sv:
+                SVs_dnn_concatenated = np.concatenate(list(SVs_dnn.values()), axis =0)
+
+            if self.pfc and self.sv:
+                scores_res_ = self.modelRes({"jet":jets_dnn_concatenated, "top":mass_dnn_concatenated, "pfc": PFC_dnn_concatenated, "sv":SVs_dnn_concatenated}).numpy()
+            elif self.pfc and not self.sv:
+                scores_res_ = self.modelRes({"jet":jets_dnn_concatenated, "top":mass_dnn_concatenated, "pfc": PFC_dnn_concatenated}).numpy()
+            elif not self.pfc and self.sv:
+                scores_res_ = self.modelRes({"jet":jets_dnn_concatenated, "top":mass_dnn_concatenated, "sv":SVs_dnn_concatenated}).numpy()
+            else:
+                scores_res_ = self.modelRes({"jet":jets_dnn_concatenated, "top":mass_dnn_concatenated}).numpy()
             scores_res = {}
             # print('Scores Top Resolved :', scores_res_.shape)
             for i, s in enumerate(self.scenarios):
