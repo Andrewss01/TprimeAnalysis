@@ -35,3 +35,4 @@ NanoAODTools/python/postprocessing/plotting/condor/
 NanoAODTools/python/postprocessing/postselection_xTopSF/condor_preprocess/
 NanoAODTools/python/postprocessing/postselection_xTopSF/condor_postSel/
 NanoAODTools/python/postprocessing/TriggerSF/condor/
+venv/
