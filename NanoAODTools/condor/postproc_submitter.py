@@ -409,10 +409,6 @@ if status:
             if file_size <1000:
                 print(f"File: {file_name}, Size: {file_size} bytes")
                 job_failed += 1
-            elif not os.path.exists(running_folder+"/"+sample.label+"/condor/error/"+sample.label+"_file"+str(file_num)+".err"):
-                job_running +=1
-                print('job running: ', job_running ,' ', running_folder+"/"+sample.label+"/condor/error/"+sample.label+"_file"+str(file_num)+".err maybe on hold")
-                
             else:
                 job_success += 1
 
@@ -424,5 +420,4 @@ if status:
         print("\033[92mJobs succeeded: {} ({:.2f}%)\033[0m\n".format(job_success, (job_success/jobs_total)*100))
         print("running jobs: {} ({:.2f}%)\n".format(jobs_total-(job_failed+job_success), ((jobs_total-(job_failed+job_success))/jobs_total)*100))
         check_errors_fromcondor(sample.label, username, uid, remote_folder_name, redirector, resubmit=False, delete_files_fromtier=delete_files)
-        print('jobs running or on hold: ', job_running)
         print("\n--------------------------------------------------------------------------------")

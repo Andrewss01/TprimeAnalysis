@@ -30,3 +30,4 @@ NanoAODTools/python/postprocessing/postselection_xTopSF/condor_postSel/
 NanoAODTools/python/postprocessing/__pycache__/
 NanoAODTools/python/postprocessing/modules/common/__pycache__/
 NanoAODTools/python/postprocessing/TriggerSF/condor/
+venv/

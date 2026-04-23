@@ -11,7 +11,7 @@ import sys
 usage = 'python3 getoutputs.py -d dataset_name'
 parser = optparse.OptionParser(usage)
 parser.add_option('-d', '--dat', dest='dat', type=str, default = '', help='Please enter a dataset name')
-parser.add_option('-o', '--output', dest='output', type=str, default = 'dict_samples_2022.json', help='Please enter a json output file')
+parser.add_option('-o', '--output', dest='output', type=str, default = 'dict_samples_trota2d_2022.json', help='Please enter a json output file')
 parser.add_option('--tier', dest='tier', type=str, default = 'bari', help='Please enter location where to write the output file (tier pisa or bari)')
 (opt, args) = parser.parse_args()
 where_to_read = opt.tier
@@ -39,7 +39,7 @@ os.popen("cp /tmp/x509up_u" + str(uid) + " /afs/cern.ch/user/" + inituser + "/" 
 
 # insert here the name of output folder
 running_folder                      = os.environ.get('PWD') + "/tmp/"
-remote_folder_name                  = "Run3Analysis_Tprime"
+remote_folder_name                  = "Run3Analysis_Tprime/Eval_samples"
 
 # def find_folder_8(folder, sample, cert_path, ca_path):
 #     command = "davix-ls -E "+cert_path+" --capath "+ca_path+" davs://stwebdav.pi.infn.it:8443/cms/store/user/"+username+"/"+folder+"/"+sample+"/"
@@ -146,20 +146,20 @@ for sample in samples:
     
     files_strings   = get_files_on_tier(folder, "/tmp/x509up_u"+str(uid), "/cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/")
     file_sizes      = get_file_sizes(folder, "/tmp/x509up_u"+str(uid), "/cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/")
-    files_strings   = []
+    # files_strings   = []
 
-    jobs_total, total_on_tier, to_resubmit, not_found, empty, jobs_toResubmit_notFoundOnTier, jobs_toResubmit_emptyFile = checkSubmitStatus(redirector, username, uid, sample, running_folder, remote_folder_name)
-    for file_name, file_size in file_sizes.items():
-        jobNumber        = int(file_name.split("_")[-1].split(".")[0])
-        if jobNumber in jobs_toResubmit_emptyFile:
-            job_logFile      = "/afs/cern.ch/user/" + inituser + "/" + username + "/TprimeAnalysis/NanoAODTools/condor/tmp/" + sample.label + "/condor/log/" + sample.label + "_file" + str(jobNumber) + ".log"
-            job_errFile      = "/afs/cern.ch/user/" + inituser + "/" + username + "/TprimeAnalysis/NanoAODTools/condor/tmp/" + sample.label + "/condor/error/" + sample.label + "_file" + str(jobNumber) + ".err"
-            print(f"Excluding File: {file_name}, Size: {file_size} bytes")
-            print(f"\t\tcheck the log file: {job_logFile}")
-            print(f"\t\tcheck the err file: {job_errFile}")
-            continue
-        else:
-            files_strings.append(file_name)
+    # jobs_total, total_on_tier, to_resubmit, not_found, empty, jobs_toResubmit_notFoundOnTier, jobs_toResubmit_emptyFile = checkSubmitStatus(redirector, username, uid, sample, running_folder, remote_folder_name)
+    # for file_name, file_size in file_sizes.items():
+    #     jobNumber        = int(file_name.split("_")[-1].split(".")[0])
+    #     if jobNumber in jobs_toResubmit_emptyFile:
+    #         job_logFile      = "/afs/cern.ch/user/" + inituser + "/" + username + "/TprimeAnalysis/NanoAODTools/condor/tmp/" + sample.label + "/condor/log/" + sample.label + "_file" + str(jobNumber) + ".log"
+    #         job_errFile      = "/afs/cern.ch/user/" + inituser + "/" + username + "/TprimeAnalysis/NanoAODTools/condor/tmp/" + sample.label + "/condor/error/" + sample.label + "_file" + str(jobNumber) + ".err"
+    #         print(f"Excluding File: {file_name}, Size: {file_size} bytes")
+    #         print(f"\t\tcheck the log file: {job_logFile}")
+    #         print(f"\t\tcheck the err file: {job_errFile}")
+    #         continue
+    #     else:
+    #         files_strings.append(file_name)
             
     # for file_name, file_size in file_sizes.items():
     #     jobNumber        = int(file_name.split("_")[-1].split(".")[0])
@@ -175,7 +175,6 @@ for sample in samples:
     #         print(f"Error with file {file_name} [job_exit_code = {exit_code}] - skipping")
     #         continue
 
-    # path_file = "root://cms-xrd-global.cern.ch/"+folder.replace("davs://stwebdav.pi.infn.it:8443/cms", "")
     path_file = folder
     ntot = []
     out_strings = []
