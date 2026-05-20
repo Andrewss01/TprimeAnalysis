@@ -1,7 +1,7 @@
 # to run from lxplus9
 import ROOT, os
 from checkjobs import *
-from PhysicsTools.NanoAODTools.postprocessing.samples.samples_with_PF import *
+from PhysicsTools.NanoAODTools.postprocessing.samples.samples import *
 from checkjobs import get_file_sizes, find_folder, job_exit_code, checkSubmitStatus
 import optparse
 import json
@@ -136,7 +136,10 @@ else:
 
 for sample in samples:
     print("---------- Running dataset: ", dataset)
-    out_dict[sample.process][sample.label] = {}
+    if hasattr(sample, "process"):
+        out_dict[sample.process][sample.label] = {}
+    else:
+        out_dict[sample.label][sample.label] = {}
     if dataset!=sample.label: 
         out_dict[sample.label] = {}
         out_dict[sample.label][sample.label] = {}
@@ -146,20 +149,20 @@ for sample in samples:
     
     files_strings   = get_files_on_tier(folder, "/tmp/x509up_u"+str(uid), "/cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/")
     file_sizes      = get_file_sizes(folder, "/tmp/x509up_u"+str(uid), "/cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/")
-    # files_strings   = []
+    files_strings   = []
 
-    # jobs_total, total_on_tier, to_resubmit, not_found, empty, jobs_toResubmit_notFoundOnTier, jobs_toResubmit_emptyFile = checkSubmitStatus(redirector, username, uid, sample, running_folder, remote_folder_name)
-    # for file_name, file_size in file_sizes.items():
-    #     jobNumber        = int(file_name.split("_")[-1].split(".")[0])
-    #     if jobNumber in jobs_toResubmit_emptyFile:
-    #         job_logFile      = "/afs/cern.ch/user/" + inituser + "/" + username + "/TprimeAnalysis/NanoAODTools/condor/tmp/" + sample.label + "/condor/log/" + sample.label + "_file" + str(jobNumber) + ".log"
-    #         job_errFile      = "/afs/cern.ch/user/" + inituser + "/" + username + "/TprimeAnalysis/NanoAODTools/condor/tmp/" + sample.label + "/condor/error/" + sample.label + "_file" + str(jobNumber) + ".err"
-    #         print(f"Excluding File: {file_name}, Size: {file_size} bytes")
-    #         print(f"\t\tcheck the log file: {job_logFile}")
-    #         print(f"\t\tcheck the err file: {job_errFile}")
-    #         continue
-    #     else:
-    #         files_strings.append(file_name)
+    jobs_total, total_on_tier, to_resubmit, not_found, empty, jobs_toResubmit_notFoundOnTier, jobs_toResubmit_emptyFile = checkSubmitStatus(redirector, username, uid, sample, running_folder, remote_folder_name)
+    for file_name, file_size in file_sizes.items():
+        jobNumber        = int(file_name.split("_")[-1].split(".")[0])
+        if jobNumber in jobs_toResubmit_emptyFile:
+            job_logFile      = "/afs/cern.ch/user/" + inituser + "/" + username + "/TprimeAnalysis/NanoAODTools/condor/tmp/" + sample.label + "/condor/log/" + sample.label + "_file" + str(jobNumber) + ".log"
+            job_errFile      = "/afs/cern.ch/user/" + inituser + "/" + username + "/TprimeAnalysis/NanoAODTools/condor/tmp/" + sample.label + "/condor/error/" + sample.label + "_file" + str(jobNumber) + ".err"
+            print(f"Excluding File: {file_name}, Size: {file_size} bytes")
+            print(f"\t\tcheck the log file: {job_logFile}")
+            print(f"\t\tcheck the err file: {job_errFile}")
+            continue
+        else:
+            files_strings.append(file_name)
             
     # for file_name, file_size in file_sizes.items():
     #     jobNumber        = int(file_name.split("_")[-1].split(".")[0])
@@ -208,14 +211,19 @@ for sample in samples:
             except:
                 print("Could not open file: ", f)
                 continue
-    out_dict[sample.process][sample.label] = {'strings': out_strings, "ntot": ntot}
-    json_out[sample.process][sample.label] = out_dict[sample.process][sample.label]
+    if hasattr(sample, "process"):
+        out_dict[sample.process][sample.label] = {'strings': out_strings, "ntot": ntot}
+        json_out[sample.process][sample.label] = out_dict[sample.process][sample.label]
+    else:
+        out_dict[sample.label][sample.label] = {'strings': out_strings, "ntot": ntot}
+        json_out[sample.label][sample.label] = out_dict[sample.label][sample.label]
     if json_out.get(sample.label) is None:
         json_out[sample.label] = {}
-    json_out[sample.label][sample.label] = out_dict[sample.process][sample.label]
+    if hasattr(sample, "process"):
+        json_out[sample.label][sample.label] = out_dict[sample.process][sample.label]
     print(f"Sample {sample.label} done!")
     print("-----------------------------------------------------")
-    print(out_dict[sample.process][sample.label])
+    # print(out_dict[sample.process][sample.label])
     # print(out_dict.keys())
     # print("-----")
     # print(json_out.keys())

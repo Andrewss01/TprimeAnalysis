@@ -7,32 +7,23 @@ import array
 usage                   = 'python3 efficiency_plot.py'
 parser                  = optparse.OptionParser(usage)
 # parser.add_option('-f', '--folder'     , dest='folder'     , type=list, default='regions_histos/'            , help='one or more folder with the histos' )
-parser.add_option('-r', '--region'     , dest='region'     , type=str , default='SRTopRes'                   , help='region to calculate the efficiency' )
+parser.add_option('-r', '--region'     , dest='region'     , type=str , default='SRTopMix'                   , help='region to calculate the efficiency' )
 parser.add_option('-v', '--variable'   , dest='variable'   , type=str , default='PuppiMET_pt'                , help='variable to use'                    )
 parser.add_option('-d', '--denominator', dest='denominator', type=str , default='SR'                         , help='region to do the efficiency'        )
-parser.add_option('-s', '--saving'     , dest='saving'     , type=str , default='results/'                      , help='folder where to save plots'         )
+parser.add_option('-s', '--saving'     , dest='saving'     , type=str , default='efficiency_studies/'                      , help='folder where to save plots'         )
 # parser.add_option('-s', '--sample'     , dest='sample'     , type=str, default='ZJets'                      ,)
 
 
 (opt, args)             = parser.parse_args()
 
 # folder_name = opt.folder
-folders = ["regions_histos/trota2d_histos_tight_v1/plots/", "regions_histos/trota_histos_tight_v1/plots/"]
+folders = ["regions_histo_trota2d/plots/", "regions_histo_trota/plots/"]
 region      = opt.region
 variable    = opt.variable
 denominator = opt.denominator
-plot_folder = opt.saving
+save_folder = opt.saving
 
 
-regions = ["btagSFcheck","SR","SR0fjets","SRatleast1fjets","SRTopRes","SRTopRes0fjets","SRTopResatleast1fjets","SRTopMix","SRTopMix0fjets","SRTopMixatleast1fjets",
-            "SRTopMer","SRTopMer0fjets","SRTopMeratleast1fjets","SRTop","SRTop0fjets","SRTopatleast1fjets","SRTopLoose","SRTop0fjetsLoose","SRTopatleast1fjetsLoose",
-            "SRTopResLoose","SRTop0fjetsResLoose","SRTopatleast1fjetsResLoose","SRTopMixLoose","SRTop0fjetsMixLoose","SRTopatleast1fjetsMixLoose","SRTopMerLoose",
-            "SRTop0fjetsMerLoose","SRTopatleast1fjetsMerLoose","AH","AHResLoose","AHMixLoose","AHMerLoose","AHLoose","SL","SLResLoose","SLMixLoose","SLMerLoose",
-            "SLLoose","AH1lWR","AH1lWRResLoose","AH1lWRMixLoose","AH1lWRMerLoose","AH1lWRLoose","AH0lZR","AH0lZRResLoose","AH0lZRMixLoose","AH0lZRMerLoose","AH0lZRLoose"]
-
-variables = [ "PuppiMET_pt", "PuppiMET_phi", "PuppiMET_T1_pt_nominal", "PuppiMET_T1_phi_nominal", "LeadingJetPt_pt", "LeadingFatJetPt_pt", "LeadingFatJetPt_msoftdrop",
-              "nTopMixed", "nTopResolved", "nJet", "nJetBtagMedium", "nJetBtagLoose", "nFatJet", "MinDelta_phi", "HT_eventHT", "MHT", "PV_npvsGood", "TopMixed_TopScore_nominal", 
-              "TopResolved_TopScore_nominal", "EventTopCategory", "Top_mass", "Top_pt", "Top_score", "MT_T", "FatJet_particleNetWithMass_TvsQCD", "FatJet_msoftdrop_nominal"]
 
 if region not in regions: 
     print('Insert a correct value for the region')
@@ -45,17 +36,20 @@ if denominator not in regions:
     exit()
 
 
-plots_folder  = os.environ.get('PWD') + "/" + plot_folder
+output_folder  = "/eos/user/a/apuglia/Tprime/" + save_folder
 
-mtprime_values = [700,800,900,1000,1200,1300,1400,1500,1600,1700]
+if not os.path.exists(output_folder):
+    os.makedirs(output_folder)
 
-f = open('num_events_'+region+'_vs_'+denominator+'.txt',"w")
+mtprime_values = [700,800,900,1000,1100,1200,1300,1400,1500,1600,1700,1800]
+zjets_values = ["600","400to600","200to400","100to200","40to100"]
+f = open(f'{output_folder}num_events_{variable}_{region}_vs_{denominator}.txt',"w")
 eff_values = {'trota2d': [], 'trota':[]}
 
 # for file_root in os.listdir(histos_folder):
 for folder_ in folders:
-    print('folder is: ', folder_)
-    folder = os.environ.get('PWD')+"/"+folder_
+    
+    folder = "/eos/user/a/apuglia/Tprime/"+folder_
     f.write(f"folder: {folder_}\n")
     effs = []
     for mt_ in mtprime_values:
@@ -66,22 +60,32 @@ for folder_ in folders:
 
         num_total_tprime = count_num_events(file_path, variable, denominator)
         num_tight_tprime = count_num_events(file_path, variable, region)
-        # print('mt is: ', mt_)
-        # print('nm total tprime: ', num_total_tprime)
+       
         f.write(f"events is {region} {num_tight_tprime} ")
         f.write(f"events in {denominator} {num_total_tprime} ")
         eff = num_tight_tprime/num_total_tprime
-        # /num_total_tprime 
+    
         f.write(f"efficiency: {eff}\n")
-        # print('eff is: ', eff)
+
 
         effs.append(eff)
     
     if 'trota2d' in folder_:
-        # print(folder_)
+        
         eff_values['trota2d'] = effs
     else: 
         eff_values['trota'] = effs
+    num_total_zjets, num_selected_zjets = 0,0
+    for zj in zjets_values:
+        for num_jet in ["1J","2J"]:
+            file_name = "ZJetsToNuNu_2jets_PT"+str(zj)+"_"+str(num_jet)+"_2022.root"
+            file_path = folder+ file_name
+            total_zjets = count_num_events(file_path, variable,denominator)
+            selected_zjets = count_num_events(file_path,variable, region)
+            num_total_zjets += total_zjets
+            num_selected_zjets += selected_zjets
+    
+    f.write(f"ZJETS events in {region} {num_selected_zjets} ZJETS events in {denominator} {num_total_zjets} efficiency {num_selected_zjets/num_total_zjets}\n")
         
 trota2d_values = eff_values['trota2d']
 trota_values   = eff_values['trota']
@@ -89,25 +93,26 @@ f.close()
 
 print(len(mtprime_values))
 print(len(trota_values))
+print(len(trota2d_values))
 
 graph_trota   = ROOT.TGraph(len(mtprime_values), array.array('f',mtprime_values), array.array('f',trota_values  ))
 graph_trota2d = ROOT.TGraph(len(mtprime_values), array.array('f',mtprime_values), array.array('f',trota2d_values))
 
 graph_trota2d.GetXaxis().SetTitle('mtprime')
 graph_trota2d.GetYaxis().SetTitle('efficiency')
-# graph_trota2d.SetLineColor(ROOT.kBlue)
+
 graph_trota2d.SetMarkerColor(ROOT.kBlue)
 graph_trota2d.SetMarkerStyle(20)
 
 
-# graph_trota2d.SetLineColor(ROOT.Green)
 graph_trota.SetMarkerColor(ROOT.kGreen)
 graph_trota.SetMarkerStyle(21)
 
 c = ROOT.TCanvas()
-# A = assi, P = punti, L = linee
-graph_trota.Draw("AP")
-graph_trota2d.Draw("SAMEP")  
+
+graph_trota2d.Draw("AP")  
+graph_trota.Draw("SAMEP")
+
 
 
 leg = ROOT.TLegend(0.7, 0.7, 0.9, 0.9)
@@ -123,4 +128,4 @@ leg.SetHeader("Legend")
 leg.Draw()
 
 c.Draw()
-c.SaveAs("efficiency_"+region+"_vs_"+denominator+".png")
+c.SaveAs(f"{output_folder}efficiency_{variable}_{region}_vs_{denominator}.png")

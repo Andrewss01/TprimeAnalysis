@@ -437,6 +437,7 @@ class nanoTopevaluate_MultiScore(Module):
         """process event, return True (go to next module) or False (fail, go to next event)"""
         
         jets     = Collection(event,"Jet")
+        
         njets    = len(jets)
         fatjets  = Collection(event,"FatJet")
         nfatjets = len(fatjets)
@@ -596,8 +597,8 @@ class nanoTopevaluate_MultiScore(Module):
             fj.SetPtEtaPhiM(0,0,0,0)
             sumjet = j0.p4()+j1.p4()+j2.p4()
             for s in self.scenarios:
-                jets_dnn[s] = fill_jets(self.year, jets_dnn_res[s], j0, j1, j2, sumjet, fj.Phi(), fj.Eta(), i, scenario = s)
-                mass_dnn[s]    = fill_mass(mass_dnn=mass_dnn_res[s], idx_top=i, j0=j0, j1=j1, j2 =j2, fj = None, scenario = s)
+                jets_dnn_res[s] = fill_jets(self.year, jets_dnn_res[s], j0, j1, j2, sumjet, fj.Phi(), fj.Eta(), i, scenario = s)
+                mass_dnn_res[s]    = fill_mass(mass_dnn=mass_dnn_res[s], idx_top=i, j0=j0, j1=j1, j2 =j2, fj = None, scenario = s)
 
             if self.pfc:
                 PFCs=[]
@@ -626,48 +627,48 @@ class nanoTopevaluate_MultiScore(Module):
             if self.pfc or self.sv:
                 for s in self.scenarios:
                     if self.pfc:
-                        PFC_dnn[s] = fill_PFCs(n_PFCs= n_PFCs, PFCs_dnn= PFC_dnn_res[s], PFCs= PFCs, idx_top= i, top = top, scenario  =s)
+                        PFC_dnn_res[s] = fill_PFCs(n_PFCs= n_PFCs, PFCs_dnn= PFC_dnn_res[s], PFCs= PFCs, idx_top= i, top = top, scenario  =s)
                     if self.sv:
-                        SVs_dnn[s] =fill_SVs(n_SVs= n_SVs, SVs_dnn= SVs_dnn_res[s], SVs= SVs, idx_top= i, top = top, scenario = s)
+                        SVs_dnn_res[s] =fill_SVs(n_SVs= n_SVs, SVs_dnn= SVs_dnn_res[s], SVs= SVs, idx_top= i, top = top, scenario = s)
 
         
         
         
         if len(toplowpt)!=0:
             # print(shape(PFC_dnn))
-            jets_dnn_concatenated = np.concatenate(list(jets_dnn.values()), axis=0)
-            mass_dnn_concatenated = np.concatenate(list(mass_dnn.values()), axis=0)
+            jets_dnn_concatenated = np.concatenate(list(jets_dnn_res.values()), axis=0)
+            mass_dnn_concatenated = np.concatenate(list(mass_dnn_res.values()), axis=0)
             if self.pfc:
-                PFC_dnn_concatenated = np.concatenate(list(PFC_dnn.values()), axis =0)
+                PFC_dnn_concatenated = np.concatenate(list(PFC_dnn_res.values()), axis =0)
             if self.sv:
-                SVs_dnn_concatenated = np.concatenate(list(SVs_dnn.values()), axis =0)
+                SVs_dnn_concatenated = np.concatenate(list(SVs_dnn_res.values()), axis =0)
 
             if self.pfc and self.sv:
-                scores_res_ = self.modelRes({"jet":jets_dnn_concatenated, "top":mass_dnn_concatenated, "pfc": PFC_dnn_concatenated, "sv":SVs_dnn_concatenated}).numpy()
+                scores_res_ = self.modelRes({"jet":jets_dnn_concatenated, "pfc": PFC_dnn_concatenated, "sv":SVs_dnn_concatenated}).numpy()
             elif self.pfc and not self.sv:
-                scores_res_ = self.modelRes({"jet":jets_dnn_concatenated, "top":mass_dnn_concatenated, "pfc": PFC_dnn_concatenated}).numpy()
+                scores_res_ = self.modelRes({"jet":jets_dnn_concatenated, "pfc": PFC_dnn_concatenated}).numpy()
             elif not self.pfc and self.sv:
-                scores_res_ = self.modelRes({"jet":jets_dnn_concatenated, "top":mass_dnn_concatenated, "sv":SVs_dnn_concatenated}).numpy()
+                scores_res_ = self.modelRes({"jet":jets_dnn_concatenated, "sv":SVs_dnn_concatenated}).numpy()
             else:
-                scores_res_ = self.modelRes({"jet":jets_dnn_concatenated, "top":mass_dnn_concatenated}).numpy()
+                scores_res_ = self.modelRes({"jet":jets_dnn_concatenated}).numpy()
             scores_res = {}
-            # print('Scores Top Resolved :', scores_res_.shape)
+            print('Scores Top Resolved :', scores_res_.shape)
             for i, s in enumerate(self.scenarios):
                 scores_res[s] = scores_res_[0 + i*len(toplowpt): len(toplowpt) + i*len(toplowpt)]
                 prob_false_tt = (scores_res[s][:,0]).flatten().tolist()
                 prob_true_tt  = (scores_res[s][:,1]).flatten().tolist()
                 prob_qcd      = (scores_res[s][:,2]).flatten().tolist()
 
-                self.out.fillBranch(f"TopMixed_QCDScore_"+s, prob_qcd)
-                self.out.fillBranch(f"TopMixed_TTScore_" +s, prob_true_tt)
-                self.out.fillBranch(f"TopMixed_FTScore_" +s, prob_false_tt)
+                self.out.fillBranch(f"TopResolved_QCDScore_"+s, prob_qcd)
+                self.out.fillBranch(f"TopResolved_TTScore_" +s, prob_true_tt)
+                self.out.fillBranch(f"TopResolved_FTScore_" +s, prob_false_tt)
                 
         else:
             scores_res = {s: [] for s in self.scenarios}
             for s in self.scenarios:
-                self.out.fillBranch(f"TopMixed_QCDScore_"+s, scores_res[s])
-                self.out.fillBranch(f"TopMixed_TTScore_" +s, scores_res[s])
-                self.out.fillBranch(f"TopMixed_FTScore_" +s, scores_res[s])
+                self.out.fillBranch(f"TopResolved_QCDScore_"+s, scores_res[s])
+                self.out.fillBranch(f"TopResolved_TTScore_" +s, scores_res[s])
+                self.out.fillBranch(f"TopResolved_FTScore_" +s, scores_res[s])
     
         
             # self.out.fillBranch("TopResolved_TopScore_"+s, top_score_DNN[s])

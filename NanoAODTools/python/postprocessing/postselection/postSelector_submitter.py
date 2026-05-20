@@ -29,15 +29,16 @@ parser.add_option(      '--dryrun',                 dest='dryrun',              
 parser.add_option(      '--noSFbtag',               dest='noSFbtag',            action='store_true',    default = False,                                        help='remove b tag SF')
 parser.add_option(      '--noPuWeight',             dest='noPuWeight',          action='store_true',    default = False,                                        help='remove PU weight')
 parser.add_option(      '--printcutflow',        dest='printcutflow',        action='store_true',    default=False,                                  help='print cutflow')
-
+parser.add_option(      '--trota2d' ,          dest = 'trota2d' , action = 'store_true', default = False)
 (opt, args)         = parser.parse_args()
 dataset_to_run      = opt.dat
 syst                = opt.syst
-nfiles_max          = 10000#opt.nfiles_max
+nfiles_max          = 100#opt.nfiles_max
 dryrun              = opt.dryrun
 noSFbtag            = opt.noSFbtag
 noPuWeight          = opt.noPuWeight
-printcutflow       = opt.printcutflow
+printcutflow        = opt.printcutflow
+trota_2d            = opt.trota2d
 
 period              = dataset_to_run.split("_")[-1]
 if period not in ["2022", "2022EE", "2023", "2023postBPix", "2024"]:
@@ -49,8 +50,11 @@ if "2022" in period:
 elif "2023" in period:
     year            = "2023"
 
-dict_samples_file   = config["dict_samples"][year]
 
+if not trota_2d:
+    dict_samples_file   = "../samples/dict_samples_2022.json"
+else:
+    dict_samples_file   = "../samples/dict_samples_trota2d_2022.json"
 syst_suffix         = ""
 if syst:
     syst_suffix    += "_syst"
@@ -59,7 +63,11 @@ if noSFbtag:
 if noPuWeight:
     syst_suffix    += "_noPuWeight"
 
-outFolder_path      = config["outputfolder"]["postselector_results"][period]
+# outFolder_path      = config["outputfolder"]["postselector_results"][period]
+if not trota_2d:
+    outFolder_path = "/eos/user/a/apuglia/Tprime/regions_histo_trota/"
+else:
+    outFolder_path = "/eos/user/a/apuglia/Tprime/regions_histo_trota2d/"
 
 username        = str(os.environ.get('USER'))
 inituser        = str(os.environ.get('USER')[0])
@@ -96,7 +104,10 @@ def runner_writer(run_folder, dataset, dict_samples_file, hist_folder, nfiles_ma
     f.write("cd /afs/cern.ch/user/" + inituser + "/" + username + "/\n")
     f.write("source analysis_TPrime.sh\n")
     f.write("cd python/postprocessing/postselection/\n")
-    pycommand = "python3 postSelector.py "+f"-d {dataset} --dict_samples_file {dict_samples_file} --hist_folder {hist_folder} --nfiles_max {nfiles_max} --tmpfold"
+    if not trota_2d:
+        pycommand = "python3 postSelector.py "+f"-d {dataset} --dict_samples_file {dict_samples_file} --hist_folder {hist_folder} --nfiles_max {nfiles_max} --tmpfold"
+    else:
+        pycommand = "python3 postSelector_trota2d_v2.py "+f"-d {dataset} --dict_samples_file {dict_samples_file} --hist_folder {hist_folder} --nfiles_max {nfiles_max} --tmpfold"
     if syst:
         pycommand += " --syst"
     if noSFbtag:
