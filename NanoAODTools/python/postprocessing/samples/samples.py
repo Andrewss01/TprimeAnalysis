@@ -4480,13 +4480,6 @@ sample_dict = {
     "TprimeToTZ_1600_2023postBPix":TprimeToTZ_1600_2023postBPix,
     "TprimeToTZ_1700_2023postBPix":TprimeToTZ_1700_2023postBPix,
     "TprimeToTZ_1800_2023postBPix":TprimeToTZ_1800_2023postBPix,
-    "TprimeToTZ_1900_2023postBPix":TprimeToTZ_1900_2023postBPix,
-    "TprimeToTZ_2000_2023postBPix":TprimeToTZ_2000_2023postBPix,
-    "TprimeToTZ_2200_2023postBPix":TprimeToTZ_2200_2023postBPix,
-    "TprimeToTZ_2400_2023postBPix":TprimeToTZ_2400_2023postBPix,
-    "TprimeToTZ_2600_2023postBPix":TprimeToTZ_2600_2023postBPix,
-    "TprimeToTZ_2800_2023postBPix":TprimeToTZ_2800_2023postBPix,
-    "TprimeToTZ_3000_2023postBPix":TprimeToTZ_3000_2023postBPix,
 
     #####################2024
     ############ QCD
