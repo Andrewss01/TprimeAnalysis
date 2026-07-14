@@ -10,10 +10,9 @@ from config import models # import machine learning models dictionary from confi
 usage = 'python3 postproc_submitter.py -d dataset_name'
 parser = optparse.OptionParser(usage)
 parser.add_option('-d', '--dat', dest='dat', type=str, default = '', help='Please enter a dataset name')
-parser.add_option('--tier', dest='tier', type=str, default = 'bari', help='Please enter location where to write the output file (tier pisa or bari)')
+parser.add_option('--tier', dest='tier', type=str, default = 'pisa', help='Please enter location where to write the output file (tier pisa or bari)')
 parser.add_option('--syst', dest='syst', action='store_true', default=False, help='calculate jerc')
 parser.add_option('--dryrun', dest='debug', action='store_true', default=False, help='dryrun')
-# parser.add_option('--trota2d', dest='trota2d', action='store_true', default=False, help='to use trota 2d as tagger')
 # parser.add_option('-w', '--write', dest='write', type=str, default = 'tier', help='Please enter location where to write the output file (eos or tier)')
 parser.add_option('-s', '--submit', dest='submit', action='store_true', default=False, help='submit jobs')
 parser.add_option('-r', '--resubmit', dest='resubmit', action='store_true', default=False, help='resubmit failed jobs')
@@ -40,7 +39,6 @@ else:
 username = str(os.environ.get('USER'))
 inituser = str(os.environ.get('USER')[0])
 uid      = int(os.getuid())
-# print('uid is: ', uid)
 workdir  = "user" if "user" in os.environ.get('PWD') else "work"
 name_main_folder = "TprimeAnalysis" if "TprimeAnalysis" in os.environ.get('PWD') else "Analysis"
 
@@ -53,12 +51,11 @@ os.popen("cp /tmp/x509up_u" + str(uid) + " /afs/cern.ch/user/" + inituser + "/" 
 
 
 # insert here the name of output folder
-remote_folder_name = "Run3Analysis_Tprime/Eval_samples"
+remote_folder_name = "Run3Analysis_Tprime"
 
 print("\033[92m\n\n######################## POSTPROC SUBMITTER ########################\033[0m")
 print("Launching crab script for dataset: ", opt.dat)
 
-# davs://webdav.recas.ba.infn.it:8443/cms/store/user/apuglia/
 if submit:
     print("\nRemote folder name (tier): ", remote_folder_name)
     if not debug: os.popen("davix-mkdir {}/store/user/{}/{}/ -E /tmp/x509up_u{} --capath /cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/".format(redirector, username, remote_folder_name, str(uid)))
@@ -81,17 +78,6 @@ def write_crab_script(sample, file, modules, run_folder, calculate_systematics, 
     if year in [2022,2023,2024] and calculate_systematics:
         f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.nanoTopcandidate_v2_syst import *\n")
         f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.nanoTopEvaluate_MultiScore_v2_syst import *\n")
-    # elif year==2022 and trota_2d:
-    #     # f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.idx_PFC_SV import *\n")
-    #     # f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.collectionMerger import *\n")
-    #     # f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.deltaR_PF_SV import *\n")
-    #     if calcualte_systematics:
-    #         f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.nanoTopcandidate_PF_SV_syst import *\n")
-    #         f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.nanoTopEvaluate_MultiScore_v3_syst import *\n")
-    #     else:
-    #         f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.NanoTopCandidate_PF_SV import *\n")
-    #         f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.nanoTopEvaluate_MultiScore_v3 import *\n")
-            
     else:
         f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.nanoTopcandidate_v2 import *\n")
         f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.nanoTopEvaluate_MultiScore_v2 import *\n")
@@ -152,7 +138,7 @@ def sub_writer(run_folder, log_folder, label, sample_label):
     # f.write("when_to_transfer_output = ON_EXIT\n")
     f.write("transfer_input_files    = $(Proxy_path)\n")
     #f.write("transfer_output_remaps  = \""+outname+"_Skim.root=root://eosuser.cern.ch///eos/user/"+inituser + "/" + username+"/DarkMatter/topcandidate_file/"+dat_name+"_Skim.root\"\n")
-    f.write("+JobFlavour             = \"nextweek\"\n") # options are espresso = 20 minutes, microcentury = 1 hour, longlunch = 2 hours, workday = 8 hours, tomorrow = 1 day, testmatch = 3 days, nextweek = 1 week
+    f.write("+JobFlavour             = \"testmatch\"\n") # options are espresso = 20 minutes, microcentury = 1 hour, longlunch = 2 hours, workday = 8 hours, tomorrow = 1 day, testmatch = 3 days, nextweek = 1 week
     f.write("+JobTag                 = "+sample_label+"_"+label+"\n")
     f.write("executable              = "+run_folder+"/runner.sh\n")
     f.write("arguments               = $(Proxy_path)\n")
@@ -180,7 +166,6 @@ def runner_writer(folder, i, remote_folder_name, sample_folder, launchtime, outf
 
 dataset_to_run = opt.dat
 
-# print('sample dict is: ', sample_dict)
 if dataset_to_run == '':
     print("Please enter a dataset name")
     exit()
@@ -196,12 +181,10 @@ elif dataset_to_run in sample_dict.keys():
         print("You are running a single sample")
         print("---------- Running sample: ", dataset_to_run)
         samples = [sample_dict[dataset_to_run]]
-        print('dataset is: ' , sample_dict[dataset_to_run].dataset)
-
+        
 running_folder = os.environ.get('PWD')+"/tmp/"
 if not os.path.exists(running_folder):
     os.makedirs(running_folder)
- 
 
 if submit:
     print("\n################################################ SUBMITTING mode")

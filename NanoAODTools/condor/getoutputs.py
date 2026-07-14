@@ -11,8 +11,8 @@ import sys
 usage = 'python3 getoutputs.py -d dataset_name'
 parser = optparse.OptionParser(usage)
 parser.add_option('-d', '--dat', dest='dat', type=str, default = '', help='Please enter a dataset name')
-parser.add_option('-o', '--output', dest='output', type=str, default = 'dict_samples_trota2d_2022.json', help='Please enter a json output file')
-parser.add_option('--tier', dest='tier', type=str, default = 'bari', help='Please enter location where to write the output file (tier pisa or bari)')
+parser.add_option('-o', '--output', dest='output', type=str, default = 'dict_samples_2022.json', help='Please enter a json output file')
+parser.add_option('--tier', dest='tier', type=str, default = 'pisa', help='Please enter location where to write the output file (tier pisa or bari)')
 (opt, args) = parser.parse_args()
 where_to_read = opt.tier
 
@@ -39,7 +39,7 @@ os.popen("cp /tmp/x509up_u" + str(uid) + " /afs/cern.ch/user/" + inituser + "/" 
 
 # insert here the name of output folder
 running_folder                      = os.environ.get('PWD') + "/tmp/"
-remote_folder_name                  = "Run3Analysis_Tprime/Eval_samples"
+remote_folder_name                  = "Run3Analysis_Tprime"
 
 # def find_folder_8(folder, sample, cert_path, ca_path):
 #     command = "davix-ls -E "+cert_path+" --capath "+ca_path+" davs://stwebdav.pi.infn.it:8443/cms/store/user/"+username+"/"+folder+"/"+sample+"/"

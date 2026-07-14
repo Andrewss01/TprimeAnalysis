@@ -39,9 +39,8 @@ def find_folder(redirector, username, remote_dir, dataset_label, cert_path, ca_p
     ], capture_output=True, text=True, check=True)
     subfold = results.stdout.splitlines()
     subfold.sort()
-    print(subfold)
     subfold = subfold[-1]
-    print(subfold)
+
     return redirector+"/store/user/"+username+"/"+remote_dir+"/"+dataset_label+"/"+subfold
 
 def job_exit_code(job_logFile):
@@ -199,7 +198,7 @@ def check_errors_fromcondor(dataset, username, uid, remote_folder_name, redirect
 
 # # Esempio di utilizzo
 # folder = find_folder("Run3Analysis_Tprime", "TprimeToTZ_1800_2022", "/tmp/x509up_u140541", "/cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/")
-# # directory_url = "davs://webdav.recas.ba.infn.it:8443/cms/store/user/acagnott/Run3Analysis_Tprime/DataEGammaC_2022/20240703_092359/"
+# # directory_url = "davs://stwebdav.pi.infn.it:8443/cms/store/user/acagnott/Run3Analysis_Tprime/DataEGammaC_2022/20240703_092359/"
 # # cert_path = "/tmp/x509up_u140541"
 # # ca_path = "/cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/"
 # file_sizes = get_file_sizes(folder, "/tmp/x509up_u140541", "/cvmfs/cms.cern.ch/grid/etc/grid-security/certificates/")
