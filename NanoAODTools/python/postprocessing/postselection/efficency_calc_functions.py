@@ -1,6 +1,7 @@
 import ROOT 
 
 def count_num_events(file_path, variable, region, syst ='nominal'):
+    print(file_path)
     rfile = ROOT.TFile.Open(file_path, 'READ')
     key = variable + '_' + region +"_" + syst
     histo  = rfile.Get(key)

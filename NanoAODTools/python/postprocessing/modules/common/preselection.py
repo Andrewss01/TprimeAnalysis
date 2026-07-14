@@ -23,7 +23,7 @@ class preselection(Module):
         #t0 = datetime.now()
         goodEvent = False
         """process event, return True (go to next module) or False (fail, go to next event)"""
-        met = Object(event, "MET")
+        met = Object(event, "PuppiMET")
         jets = Collection(event, "Jet")
         fatjets = Collection(event, "FatJet")
         PV = Object(event, "PV")

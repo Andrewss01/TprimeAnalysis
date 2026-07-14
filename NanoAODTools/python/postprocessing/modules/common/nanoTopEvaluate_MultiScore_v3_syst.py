@@ -652,7 +652,7 @@ class nanoTopevaluate_MultiScore(Module):
             else:
                 scores_res_ = self.modelRes({"jet":jets_dnn_concatenated}).numpy()
             scores_res = {}
-            print('Scores Top Resolved :', scores_res_.shape)
+            # print('Scores Top Resolved :', scores_res_.shape)
             for i, s in enumerate(self.scenarios):
                 scores_res[s] = scores_res_[0 + i*len(toplowpt): len(toplowpt) + i*len(toplowpt)]
                 prob_false_tt = (scores_res[s][:,0]).flatten().tolist()

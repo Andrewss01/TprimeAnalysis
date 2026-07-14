@@ -284,7 +284,7 @@ if submit:
         if hasattr(sample, 'dataset'):
             files = get_files_string(sample, 'global')
             if debug: files = files[:1] 
-            print(len(files))
+            # print(len(files))
 
             for i, f in enumerate(files):
                 print("....submitting file", i, end='\r')
@@ -419,5 +419,5 @@ if status:
         print("\033[91mJobs failed: {} ({:.2f}%)\033[0m".format(job_failed, (job_failed/jobs_total)*100))
         print("\033[92mJobs succeeded: {} ({:.2f}%)\033[0m\n".format(job_success, (job_success/jobs_total)*100))
         print("running jobs: {} ({:.2f}%)\n".format(jobs_total-(job_failed+job_success), ((jobs_total-(job_failed+job_success))/jobs_total)*100))
-        check_errors_fromcondor(sample.label, username, uid, remote_folder_name, redirector, resubmit=False, delete_files_fromtier=delete_files)
+        check_errors_fromcondor(sample.label, username, uid, remote_folder_name, redirector, resubmit=False, delete_files_fromtier=False)
         print("\n--------------------------------------------------------------------------------")

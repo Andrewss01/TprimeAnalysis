@@ -39,8 +39,9 @@ def find_folder(redirector, username, remote_dir, dataset_label, cert_path, ca_p
     ], capture_output=True, text=True, check=True)
     subfold = results.stdout.splitlines()
     subfold.sort()
+    print(subfold)
     subfold = subfold[-1]
-
+    print(subfold)
     return redirector+"/store/user/"+username+"/"+remote_dir+"/"+dataset_label+"/"+subfold
 
 def job_exit_code(job_logFile):

@@ -7,7 +7,7 @@ import array
 usage                   = 'python3 efficiency_plot.py'
 parser                  = optparse.OptionParser(usage)
 # parser.add_option('-f', '--folder'     , dest='folder'     , type=list, default='regions_histos/'            , help='one or more folder with the histos' )
-parser.add_option('-r', '--region'     , dest='region'     , type=str , default='SRTopMix'                   , help='region to calculate the efficiency' )
+parser.add_option('-r', '--region'     , dest='region'     , type=str , default='SRTop'                   , help='region to calculate the efficiency' )
 parser.add_option('-v', '--variable'   , dest='variable'   , type=str , default='PuppiMET_pt'                , help='variable to use'                    )
 parser.add_option('-d', '--denominator', dest='denominator', type=str , default='SR'                         , help='region to do the efficiency'        )
 parser.add_option('-s', '--saving'     , dest='saving'     , type=str , default='efficiency_studies/'                      , help='folder where to save plots'         )
@@ -108,12 +108,23 @@ graph_trota2d.SetMarkerStyle(20)
 graph_trota.SetMarkerColor(ROOT.kGreen)
 graph_trota.SetMarkerStyle(21)
 
+
+ymax = max(max(trota2d_values), max(trota_values))
+ymin = min(min(trota2d_values), min(trota_values))
+# graph_trota2d.GetYaxis().SetRangeUser(ymin, ymax*1.1)
+
+
 c = ROOT.TCanvas()
 
-graph_trota2d.Draw("AP")  
+
+
+graph_trota2d.GetYaxis().SetRangeUser(ymin, ymax*1.1)
+graph_trota2d.GetHistogram().SetMaximum(ymax*1.1)
+graph_trota2d.GetHistogram().SetMinimum(ymin*0.8)
+graph_trota2d.Draw("AP")
 graph_trota.Draw("SAMEP")
-
-
+c.Modified()
+c.Update()
 
 leg = ROOT.TLegend(0.7, 0.7, 0.9, 0.9)
 leg.AddEntry(graph_trota, "TROTA", "lp")

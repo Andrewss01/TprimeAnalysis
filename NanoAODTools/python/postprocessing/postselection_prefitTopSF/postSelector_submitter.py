@@ -6,7 +6,6 @@ import shutil
 from PhysicsTools.NanoAODTools.postprocessing.samples.samples import *
 import yaml
 from pathlib import Path
-import shutil
 sys.path.append('../')
 
 config = {}
@@ -20,26 +19,27 @@ else:
     sys.exit(1)
 
 
-usage               = "python3 postSelector_submitter.py -d dataset_name --syst --dryrun --noSFbtag"
+usage               = "python3 postSelector_submitter.py -d dataset_name --TopCategory Mixed --syst --dryrun"
 parser              = optparse.OptionParser(usage)
 parser.add_option("-d", "--dat",                    dest="dat",                 type=str,                                                                       help="Please enter a dataset name")
+parser.add_option(      '--TopCategory',            dest='TopCategory',         type=str,               default="Mixed",                                        help='Top category for the histograms: Resolved, Mixed or Merged')
 # parser.add_option(      '--period',                 dest='period',              type=str,               default = "2023",                                       help='era you are running: 2022, 2022EE, 2023 or 2023postBPix')
 parser.add_option(      '--syst',                   dest='syst',                action='store_true',    default = False,                                        help='calculate jerc')
 parser.add_option(      '--dryrun',                 dest='dryrun',              action='store_true',    default = False,                                        help='dryrun')
+parser.add_option(      '--noTopPtWeight',          dest='noTopPtWeight',       action='store_true',    default = False,                                        help='remove top pt weight')
 parser.add_option(      '--noSFbtag',               dest='noSFbtag',            action='store_true',    default = False,                                        help='remove b tag SF')
 parser.add_option(      '--noPuWeight',             dest='noPuWeight',          action='store_true',    default = False,                                        help='remove PU weight')
-parser.add_option(      '--printcutflow',        dest='printcutflow',        action='store_true',    default=False,                                  help='print cutflow')
-parser.add_option(      '--trota2d' ,          dest = 'trota2d' , action = 'store_true', default = False)
+
 (opt, args)         = parser.parse_args()
 dataset_to_run      = opt.dat
+TopCategory         = opt.TopCategory
 syst                = opt.syst
-nfiles_max          = 100#opt.nfiles_max
+nfiles_max          = 10000#opt.nfiles_max
 dryrun              = opt.dryrun
+noTopPtWeight       = opt.noTopPtWeight
 noSFbtag            = opt.noSFbtag
 noPuWeight          = opt.noPuWeight
-printcutflow        = opt.printcutflow
-trota_2d            = opt.trota2d
-wp                  = "_WP01"
+
 period              = dataset_to_run.split("_")[-1]
 if period not in ["2022", "2022EE", "2023", "2023postBPix", "2024"]:
     print("Please select a valid period among: 2022, 2022EE, 2023, 2023postBPix")
@@ -50,24 +50,20 @@ if "2022" in period:
 elif "2023" in period:
     year            = "2023"
 
+dict_samples_file   = config["dict_samples"][year]
 
-if not trota_2d:
-    dict_samples_file   = "../samples/dict_samples_2022.json"
-else:
-    dict_samples_file   = "../samples/dict_samples_trota2d_2022.json"
 syst_suffix         = ""
+syst_suffix        += f"_{TopCategory}"
 if syst:
     syst_suffix    += "_syst"
 if noSFbtag:
     syst_suffix    += "_noSFbtag"
 if noPuWeight:
     syst_suffix    += "_noPuWeight"
+if noTopPtWeight:
+    syst_suffix    += "_noTopPtWeight"
 
-# outFolder_path      = config["outputfolder"]["postselector_results"][period]
-if not trota_2d:
-    outFolder_path = "/eos/user/a/apuglia/Tprime/regions_histo_trota/"
-else:
-    outFolder_path = "/eos/user/a/apuglia/Tprime/regions_histo_trota2d"+wp+"/"
+outFolder_path      = config["TrotaScaleFactor"]["outputfolder"][TopCategory][period]
 
 username        = str(os.environ.get('USER'))
 inituser        = str(os.environ.get('USER')[0])
@@ -88,7 +84,7 @@ def sub_writer(run_folder, log_folder, dataset, syst_suffix):
     # f.write("transfer_output_remaps  = \""+outname+"_Skim.root=root://eosuser.cern.ch///eos/user/"+inituser + "/" + username+"/DarkMatter/topcandidate_file/"+dat_name+"_Skim.root\"\n")
     # f.write('requirements            = (TARGET.OpSysAndVer =?= "CentOS7")\n')
     f.write("+JobFlavour             = \"nextweek\"\n") # options are espresso = 20 minutes, microcentury = 1 hour, longlunch = 2 hours, workday = 8 hours, tomorrow = 1 day, testmatch = 3 days, nextweek = 1 week
-    f.write('+JobTag                 = "'+dataset+syst_suffix+'"\n')
+    f.write('+JobTag                 = "'+dataset+syst_suffix+'_TrotaSF"\n')
     f.write("executable              = "+run_folder+"runner.sh\n")
     f.write("arguments               = \n")
     #f.write("input                   = input.txt\n")
@@ -98,28 +94,27 @@ def sub_writer(run_folder, log_folder, dataset, syst_suffix):
     f.write("queue\n")
     f.close()
 
-def runner_writer(run_folder, dataset, dict_samples_file, hist_folder, nfiles_max, syst=False):
+def runner_writer(run_folder, dataset, TopCategory, dict_samples_file, hist_folder, nfiles_max, syst=False):
     f = open(run_folder+"runner.sh", "w")
     f.write("#!/usr/bin/bash\n")
     f.write("cd /afs/cern.ch/user/" + inituser + "/" + username + "/\n")
     f.write("source analysis_TPrime.sh\n")
-    f.write("cd python/postprocessing/postselection/\n")
-    if not trota_2d:
-        pycommand = "python3 postSelector.py "+f"-d {dataset} --dict_samples_file {dict_samples_file} --hist_folder {hist_folder} --nfiles_max {nfiles_max} --tmpfold"
-    else:
-        pycommand = "python3 postSelector_trota2d_v2.py "+f"-d {dataset} --dict_samples_file {dict_samples_file} --hist_folder {hist_folder} --nfiles_max {nfiles_max} --tmpfold"
+    f.write("cd python/postprocessing/postselection_prefitTopSF/\n")
+    pycommand = "python3 postSelector.py "+f"-d {dataset} --TopCategory {TopCategory} --dict_samples_file {dict_samples_file} --hist_folder {hist_folder} --nfiles_max {nfiles_max} --tmpfold"
     if syst:
         pycommand += " --syst"
     if noSFbtag:
         pycommand += " --noSFbtag"
     if noPuWeight:
         pycommand += " --noPuWeight"
-    if printcutflow:
-        pycommand += " --printcutflow"
+    if noTopPtWeight:
+        pycommand += " --noTopPtWeight"
 
     f.write(pycommand+"\n")
-    f.write("cp /tmp/"+username+"/"+dataset+"/"+dataset+".root "+hist_folder+"plots/.\n")
-    f.write("ls -lthra "+hist_folder+"plots/.\n")
+    f.write("ls -lthra /tmp/"+username+"/"+"\n")
+    f.write("ls -lthra /tmp/"+username+"/"+dataset+"_TrotaSF/"+"\n")
+    f.write("cp /tmp/"+username+"/"+dataset+"_TrotaSF/"+dataset+".root "+hist_folder+"plots/\n")
+    f.write("ls -lthra "+hist_folder+"plots/\n")
     f.close()
 
 
@@ -149,7 +144,7 @@ print("Samples to run: ", [s.label for s in samples])
 
 
 for sample in samples:
-    condor_folder       = os.environ.get('PWD') + "/condor" + syst_suffix + wp + "/"
+    condor_folder           = os.environ.get('PWD') + "/condor" + syst_suffix + "/"
     condor_subfolder        = condor_folder + sample.label + syst_suffix + "/"
     log_folder              = condor_subfolder + "condor/"
     if not os.path.exists(condor_folder):
@@ -179,7 +174,7 @@ for sample in samples:
 
     run_folder              = condor_subfolder
 
-    runner_writer(run_folder, sample.label, dict_samples_file, outFolder_path, nfiles_max, syst)
+    runner_writer(run_folder, sample.label, TopCategory, dict_samples_file, outFolder_path, nfiles_max, syst)
     sub_writer(run_folder, log_folder, sample.label, syst_suffix)
     if not dryrun:
         os.popen("condor_submit " + run_folder + "condor.sub")
