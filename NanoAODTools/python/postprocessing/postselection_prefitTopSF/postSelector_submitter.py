@@ -19,28 +19,26 @@ else:
     sys.exit(1)
 
 
-usage               = "python3 postSelector_submitter.py -d dataset_name --syst --dryrun --noSFbtag"
+usage               = "python3 postSelector_submitter.py -d dataset_name --TopCategory Mixed --syst --dryrun"
 parser              = optparse.OptionParser(usage)
 parser.add_option("-d", "--dat",                    dest="dat",                 type=str,                                                                       help="Please enter a dataset name")
+parser.add_option(      '--TopCategory',            dest='TopCategory',         type=str,               default="Mixed",                                        help='Top category for the histograms: Resolved, Mixed or Merged')
 # parser.add_option(      '--period',                 dest='period',              type=str,               default = "2023",                                       help='era you are running: 2022, 2022EE, 2023 or 2023postBPix')
 parser.add_option(      '--syst',                   dest='syst',                action='store_true',    default = False,                                        help='calculate jerc')
 parser.add_option(      '--dryrun',                 dest='dryrun',              action='store_true',    default = False,                                        help='dryrun')
+parser.add_option(      '--noTopPtWeight',          dest='noTopPtWeight',       action='store_true',    default = False,                                        help='remove top pt weight')
 parser.add_option(      '--noSFbtag',               dest='noSFbtag',            action='store_true',    default = False,                                        help='remove b tag SF')
 parser.add_option(      '--noPuWeight',             dest='noPuWeight',          action='store_true',    default = False,                                        help='remove PU weight')
-parser.add_option(      '--noTopPtWeight',          dest='noTopPtWeight',       action='store_true',    default = False,                                        help='remove top pt weight')
-parser.add_option(      '--noTrotaSF',              dest='noTrotaSF',           action='store_true',    default = False,                                        help='remove Trota SF')
-parser.add_option(      '--printcutflow',           dest='printcutflow',        action='store_true',    default=False,                                          help='print cutflow')
 
 (opt, args)         = parser.parse_args()
 dataset_to_run      = opt.dat
+TopCategory         = opt.TopCategory
 syst                = opt.syst
 nfiles_max          = 10000#opt.nfiles_max
 dryrun              = opt.dryrun
+noTopPtWeight       = opt.noTopPtWeight
 noSFbtag            = opt.noSFbtag
 noPuWeight          = opt.noPuWeight
-noTopPtWeight       = opt.noTopPtWeight
-noTrotaSF           = opt.noTrotaSF
-printcutflow        = opt.printcutflow
 
 period              = dataset_to_run.split("_")[-1]
 if period not in ["2022", "2022EE", "2023", "2023postBPix", "2024"]:
@@ -55,6 +53,7 @@ elif "2023" in period:
 dict_samples_file   = config["dict_samples"][year]
 
 syst_suffix         = ""
+syst_suffix        += f"_{TopCategory}"
 if syst:
     syst_suffix    += "_syst"
 if noSFbtag:
@@ -63,10 +62,8 @@ if noPuWeight:
     syst_suffix    += "_noPuWeight"
 if noTopPtWeight:
     syst_suffix    += "_noTopPtWeight"
-if noTrotaSF:
-    syst_suffix    += "_noTrotaSF"
 
-outFolder_path      = config["outputfolder"]["postselector_results"][period]
+outFolder_path      = config["TrotaScaleFactor"]["outputfolder"][TopCategory][period]
 
 username        = str(os.environ.get('USER'))
 inituser        = str(os.environ.get('USER')[0])
@@ -87,7 +84,7 @@ def sub_writer(run_folder, log_folder, dataset, syst_suffix):
     # f.write("transfer_output_remaps  = \""+outname+"_Skim.root=root://eosuser.cern.ch///eos/user/"+inituser + "/" + username+"/DarkMatter/topcandidate_file/"+dat_name+"_Skim.root\"\n")
     # f.write('requirements            = (TARGET.OpSysAndVer =?= "CentOS7")\n')
     f.write("+JobFlavour             = \"nextweek\"\n") # options are espresso = 20 minutes, microcentury = 1 hour, longlunch = 2 hours, workday = 8 hours, tomorrow = 1 day, testmatch = 3 days, nextweek = 1 week
-    f.write('+JobTag                 = "'+dataset+syst_suffix+'"\n')
+    f.write('+JobTag                 = "'+dataset+syst_suffix+'_TrotaSF"\n')
     f.write("executable              = "+run_folder+"runner.sh\n")
     f.write("arguments               = \n")
     #f.write("input                   = input.txt\n")
@@ -97,20 +94,13 @@ def sub_writer(run_folder, log_folder, dataset, syst_suffix):
     f.write("queue\n")
     f.close()
 
-def runner_writer(run_folder, dataset, dict_samples_file, hist_folder, nfiles_max, syst=False):
-    runner_path = run_folder + "runner.sh"
-    run_label   = os.path.basename(os.path.normpath(hist_folder))
-    dest_dir    = hist_folder.rstrip("/") + "/plots"
-    base_tmp     = "/tmp/" + username
-    pycommand = (
-        "python3 postSelector.py "
-        + f"-d {dataset} "
-        + f"--dict_samples_file {dict_samples_file} "
-        + f"--hist_folder {hist_folder} "
-        + f"--nfiles_max {nfiles_max} "
-        + "--tmpfold"
-    )
-
+def runner_writer(run_folder, dataset, TopCategory, dict_samples_file, hist_folder, nfiles_max, syst=False):
+    f = open(run_folder+"runner.sh", "w")
+    f.write("#!/usr/bin/bash\n")
+    f.write("cd /afs/cern.ch/user/" + inituser + "/" + username + "/\n")
+    f.write("source analysis_TPrime.sh\n")
+    f.write("cd python/postprocessing/postselection_prefitTopSF/\n")
+    pycommand = "python3 postSelector.py "+f"-d {dataset} --TopCategory {TopCategory} --dict_samples_file {dict_samples_file} --hist_folder {hist_folder} --nfiles_max {nfiles_max} --tmpfold"
     if syst:
         pycommand += " --syst"
     if noSFbtag:
@@ -119,89 +109,13 @@ def runner_writer(run_folder, dataset, dict_samples_file, hist_folder, nfiles_ma
         pycommand += " --noPuWeight"
     if noTopPtWeight:
         pycommand += " --noTopPtWeight"
-    if noTrotaSF:
-        pycommand += " --noTrotaSF"
-    if printcutflow:
-        pycommand += " --printcutflow"
 
-    with open(runner_path, "w") as f:
-        f.write("#!/usr/bin/bash\n")
-        f.write('echo "===== Job started ====="\n')
-        f.write('echo "Host: $(hostname)"\n')
-        f.write('echo "Date: $(date)"\n')
-        f.write('echo "User: ${USER:-unknown}"\n')
-        f.write('echo "PWD at start: $(pwd)"\n')
-        
-        f.write("cd /afs/cern.ch/user/" + inituser + "/" + username + "/\n")
-        f.write("source analysis_TPrime.sh\n")
-        f.write("cd python/postprocessing/postselection/\n\n")
-
-        f.write(f'base_tmp="{base_tmp}"\n')
-        f.write(f'run_label="{run_label}"\n')
-        f.write(f'dataset="{dataset}"\n')
-        f.write('outdir="${base_tmp}/${run_label}/${dataset}"\n')
-        f.write('outfile="${outdir}/${dataset}.root"\n')
-        f.write(f'destdir="{dest_dir}"\n\n')
-
-        f.write('echo "base_tmp: ${base_tmp}"\n')
-        f.write('echo "outdir: ${outdir}"\n')
-        f.write('echo "outfile: ${outfile}"\n')
-        f.write('echo "destdir: ${destdir}"\n\n')
-
-        f.write('echo "Creating local output directory: ${outdir}"\n')
-        f.write('mkdir -p "${outdir}"\n')
-        f.write('mkdir -p "${destdir}"\n\n')
-
-        f.write('echo "Running postSelector command:"\n')
-        f.write(f'echo "{pycommand}"\n\n')
-        f.write(pycommand + "\n")
-        f.write('echo "Checking expected output file: ${outfile}"\n')
-        f.write('if [ ! -s "${outfile}" ]; then\n')
-        f.write('    echo "ERROR: expected output file does not exist or is empty: ${outfile}" >&2\n')
-        f.write('    echo "Listing base tmp area:" >&2\n')
-        f.write('    ls -lthra "${base_tmp}" || true\n')
-        f.write('    echo "Listing run label directory:" >&2\n')
-        f.write('    ls -lthra "${base_tmp}/${run_label}" || true\n')
-        f.write('    echo "Listing expected output directory:" >&2\n')
-        f.write('    ls -lthra "${outdir}" || true\n')
-        f.write("fi\n\n")
-
-        f.write('echo "Copying output to ${destdir}"\n')
-        f.write('cp "${outfile}" "${destdir}/"\n\n')
-
-        f.write('echo "Final destination content:"\n')
-        f.write('ls -lthra "${destdir}/"\n\n')
-
-        f.write('echo "===== Job finished successfully ====="\n')
-        f.write('echo "Date: $(date)"\n')
-
-    
-    # f = open(run_folder+"runner.sh", "w")
-    # f.write("#!/usr/bin/bash\n")
-    # f.write("cd /afs/cern.ch/user/" + inituser + "/" + username + "/\n")
-    # f.write("source analysis_TPrime.sh\n")
-    # f.write("cd python/postprocessing/postselection/\n")
-    # pycommand = "python3 postSelector.py "+f"-d {dataset} --dict_samples_file {dict_samples_file} --hist_folder {hist_folder} --nfiles_max {nfiles_max} --tmpfold"
-    # if syst:
-    #     pycommand += " --syst"
-    # if noSFbtag:
-    #     pycommand += " --noSFbtag"
-    # if noPuWeight:
-    #     pycommand += " --noPuWeight"
-    # if noTopPtWeight:
-    #     pycommand += " --noTopPtWeight"
-    # if noTrotaSF:
-    #     pycommand += " --noTrotaSF"
-    # if printcutflow:
-    #     pycommand += " --printcutflow"
-
-    # f.write(pycommand+"\n")
-    # f.write("ls -lthra /tmp/"+username+"/"+"\n")
-    # f.write("ls -lthra /tmp/"+username+"/"+os.path.basename(os.path.normpath(hist_folder))+"/"+"\n")
-    # f.write("ls -lthra /tmp/"+username+"/"+os.path.basename(os.path.normpath(hist_folder))+"/"+dataset+"/"+"\n")
-    # f.write("cp /tmp/"+username+"/"+os.path.basename(os.path.normpath(hist_folder))+"/"+dataset+"/"+dataset+".root "+hist_folder+"plots/.\n")
-    # f.write("ls -lthra "+hist_folder+"plots/.\n")
-    # f.close()
+    f.write(pycommand+"\n")
+    f.write("ls -lthra /tmp/"+username+"/"+"\n")
+    f.write("ls -lthra /tmp/"+username+"/"+dataset+"_TrotaSF/"+"\n")
+    f.write("cp /tmp/"+username+"/"+dataset+"_TrotaSF/"+dataset+".root "+hist_folder+"plots/\n")
+    f.write("ls -lthra "+hist_folder+"plots/\n")
+    f.close()
 
 
 if not os.path.exists("/tmp/x509up_u" + str(uid)):
@@ -260,7 +174,7 @@ for sample in samples:
 
     run_folder              = condor_subfolder
 
-    runner_writer(run_folder, sample.label, dict_samples_file, outFolder_path, nfiles_max, syst)
+    runner_writer(run_folder, sample.label, TopCategory, dict_samples_file, outFolder_path, nfiles_max, syst)
     sub_writer(run_folder, log_folder, sample.label, syst_suffix)
     if not dryrun:
         os.popen("condor_submit " + run_folder + "condor.sub")
