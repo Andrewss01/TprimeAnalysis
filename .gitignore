@@ -33,3 +33,4 @@ NanoAODTools/python/postprocessing/postselection_prefitTopSF/condor*/
 NanoAODTools/python/postprocessing/TriggerSF/condor/
 NanoAODTools/python/postprocessing/plotting/condor/
 NanoAODTools/python/postprocessing/config/config.yaml
+NanoAODTools/python/postprocessing/postselection/postsel_ACP/trota*/

@@ -53,7 +53,7 @@ os.popen("cp /tmp/x509up_u" + str(uid) + " /afs/cern.ch/user/" + inituser + "/" 
 
 
 # insert here the name of output folder
-remote_folder_name = "Run3Analysis_Tprime"
+remote_folder_name = "Run3Analysis_Tprime_Trota2D"
 
 print("\033[92m\n\n######################## POSTPROC SUBMITTER ########################\033[0m")
 print("Launching crab script for dataset: ", opt.dat)

@@ -269,9 +269,9 @@ class nanoTopevaluate_MultiScore(Module):
             fj_dnn_concatenated     = np.concatenate(list(fj_dnn.values()), axis=0)
             mass_dnn_concatenated   = np.concatenate(list(mass_dnn.values()), axis=0)
 
-            if self.year in [2018,2022,2023]:
+            if self.year in [2018,2023]:
                 scores_         = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy().flatten().tolist()
-            elif self.year in [2024]:
+            elif self.year in [2024,2022]:
                 scores_True     = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy()[:,1].flatten()
                 scores_False    = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy()[:,0].flatten()
                 scores_QCD      = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy()[:,2].flatten()
@@ -300,9 +300,9 @@ class nanoTopevaluate_MultiScore(Module):
         scores                  = {}
         if len(toplowpt)!=0:
             jets_dnn_concatenated = np.concatenate(list(jets_dnn.values()), axis=0)
-            if self.year in [2018,2022,2023]:
+            if self.year in [2018,2023]:
                 scores_         = self.modelRes({"jet0": jets_dnn_concatenated[:,0,:-2], "jet1": jets_dnn_concatenated[:,1,:-2], "jet2": jets_dnn_concatenated[:,2,:-2]}).numpy().flatten().tolist()
-            elif self.year in [2024]:
+            elif self.year in [2024,2022]:
                 scores_True     = self.modelRes({"jet": jets_dnn_concatenated}).numpy()[:,1].flatten()
                 scores_False    = self.modelRes({"jet": jets_dnn_concatenated}).numpy()[:,0].flatten()
                 scores_QCD      = self.modelRes({"jet": jets_dnn_concatenated}).numpy()[:,2].flatten()

@@ -14,8 +14,8 @@ path_to_model_folder        = f"/afs/cern.ch/{workdir}/{inituser}/{username}/{na
 TopResolved2018             = "DNN_phase1_test_lowpt_DNN.h5"
 TopMixed2018                = "model_base2.h5"
 
-TopResolved2022             = "model_TopResolved_2022.h5"
-TopMixed2022                = "model_TopMixed_2022_p2.h5"
+TopResolved2022             = "model_TopResolved_2022_TROTA2D_ptcut.h5"
+TopMixed2022                = "model_TopMixed_2022_TROTA2D_ptcut.h5"
 
 TopResolved2023             = "model_TopResolved_2022.h5"
 TopMixed2023                = "model_TopMixed_2022_p2.h5"
