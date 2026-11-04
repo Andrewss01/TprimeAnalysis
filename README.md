@@ -80,6 +80,20 @@ cd TprimeAnalysis/NanoAODTools/python/postprocessing/postselection/
 python3 postSelector_submitter.py -d *dataset_name* --syst
 ```
 
+#### Split submission and weight sets
+`postSelector_submitter_large.py` splits every sample in jobs of `--partsize` files. With `--weightset` (repeatable) one job produces the histograms for several sets of weights: `allWeights`, or the weights to remove separated by commas (`noSFbtag`, `noPuWeight`, `noTopPtWeight`, `noTrotaSF`). The `--noXXX` options remove the weight from every weight set. Without `--weightset` there is one weight set, `allWeights`.
+```bash
+cd TprimeAnalysis/NanoAODTools/python/postprocessing/postselection/
+python3 postSelector_submitter_large.py -d TT_2024 --syst --noTrotaSF --weightset allWeights --weightset noSFbtag --partsize 10 --suffix *suffix* --outpath *outpath*
+```
+Every weight set has its own folder, named after the removed weights in a fixed order joined by `_` (`allWeights` if none), also when there is only one weight set; e.g. the command above writes in `*outpath*/noTrotaSF/` and `*outpath*/noSFbtag_noTrotaSF/`:
+- `<weightset>/parts/<sample>_partN.root`: output of the split jobs;
+- `<weightset>/plots/<sample>.root`: merged histograms (and samples not split), the folder to put in `plotting/folder_dict`.
+
+The same options are then used with the other modes (`-m`): `c` checks the jobs, `r` resubmits the failed ones, `h` merges the parts of every weight set into `<weightset>/plots/` (or `--mergepath`), `d` removes the parts after checking them against the merged file.
+
+`postSelector.py --snapshot` (not with `--syst`) saves the preselected events, with the b-tag columns and the weights listed in `branches`, in `<hist_folder>/snapshots/snap_<sample>.root` instead of producing the histograms.
+
 #### config file
 The configuration file for the histogram production and plotting can be found at `TprimeAnalysis/NanoAODTools/python/postprocessing/config/config.yaml`.
 You can modify this file to select the variables and samples to process, configure the output folders, and choose the plotting and systematic-uncertainty settings. In particular:

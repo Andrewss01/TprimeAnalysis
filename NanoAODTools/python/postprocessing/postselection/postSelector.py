@@ -10,6 +10,11 @@ import math
 import shutil
 from datetime import datetime
 from PhysicsTools.NanoAODTools.postprocessing.samples.samples import *
+from PhysicsTools.NanoAODTools.postprocessing.postselection.utils.bookhisto import bookhisto
+from PhysicsTools.NanoAODTools.postprocessing.postselection.utils.bookhisto2D import bookhisto2D
+from PhysicsTools.NanoAODTools.postprocessing.postselection.utils.savehisto import savehisto
+from PhysicsTools.NanoAODTools.postprocessing.postselection.utils.savehisto2d import savehisto2d
+from PhysicsTools.NanoAODTools.postprocessing.postselection.utils.weightsets import REMOVABLE_WEIGHTS, parse_weightsets
 import importlib.util
 # from PhysicsTools.NanoAODTools.postprocessing.variables import *
 sys.path.append('../')
@@ -19,7 +24,7 @@ inituser = str(os.environ.get('USER')[0])
 uid      = int(os.getuid())
 WorkDir  = os.environ["PWD"]
 
-usage                   = 'python3 postSelector.py -d <datasets> --dict_samples_file <dict_samples_file> --hist_folder <hist_folder> --nfiles_max <nfiles_max> --noSFbtag --syst'
+usage                   = 'python3 postSelector.py -d <datasets> --dict_samples_file <dict_samples_file> --hist_folder <hist_folder> --nfiles_max <nfiles_max> --noTrotaSF --weightset allWeights --weightset noSFbtag --syst'
 parser                  = optparse.OptionParser(usage)
 parser.add_option('-d', '--datasets',           dest='datasets',            type=str,               default="QCD_2023",                             help='Datasets to process, in the form: QCD_2023,TT_2023...')
 parser.add_option(      '--dict_samples_file',  dest='dict_samples_file',   type=str,               default="../samples/dict_samples_2023.json",    help='Path to the JSON file containing the sample definitions')
@@ -31,11 +36,15 @@ parser.add_option(      '--noSFbtag',           dest='noSFbtag',            acti
 parser.add_option(      '--noPuWeight',         dest='noPuWeight',          action='store_true',    default=False,                                  help='remove PU weight')
 parser.add_option(      '--noTopPtWeight',      dest='noTopPtWeight',       action='store_true',    default=False,                                  help='remove top pt weight')
 parser.add_option(      '--noTrotaSF',          dest='noTrotaSF',           action='store_true',    default=False,                                  help='remove Trota SF')
+parser.add_option(      '--weightset',          dest='weightset',           action='append',        default=None,                                   help='set of weights to produce the histograms with, repeatable: allWeights or the weights to remove separated by commas, '
+                                                                                                                                                                                 'e.g. --weightset allWeights --weightset noSFbtag --weightset noSFbtag,noTrotaSF; the --noXXX options remove the weight from every weightset. '
+                                                                                                                                                                                 'Each weightset is saved in <hist_folder>/<removed weights joined by _, or allWeights>/plots/; default: one weightset, allWeights')
 parser.add_option(      '--tmpfold',            dest='tmpfold',             action='store_true',    default=False,                                  help='test tmp folder for out file')
 parser.add_option(      '--printcutflow',       dest='printcutflow',        action='store_true',    default=False,                                  help='print cutflow')
 parser.add_option(      '--partsize',       dest='partsize',        type=int,    default=-1,                                  help='number of files to run for a given portion To use if you are doing the a-priori splitting option, together with firstfile  ')
 parser.add_option(      '--firstfile',       dest='firstfile',        type=int,    default=0,                                  help='fist file to run in the dataset, to use together with partsize')
 parser.add_option(      '--npart',       dest='npart',        type=int,    default=1,                                  help='part number of the dataset for the outfile, to use together with partsize')
+parser.add_option(      '--snapshot',           dest='snapshot',            action='store_true',    default=False,                                  help='instead of the histograms, save the preselected events (b-tag columns and weights, see branches) in <hist_folder>/snapshots/snap_<sample>.root; not with --syst')
 
 
 
@@ -43,20 +52,19 @@ parser.add_option(      '--npart',       dest='npart',        type=int,    defau
 in_dataset              = opt.datasets.split(",")
 nfiles_max              = opt.nfiles_max
 do_variations           = opt.syst
-noSFbtag                = opt.noSFbtag
-noPuWeight              = opt.noPuWeight
-noTopPtWeight           = opt.noTopPtWeight
-noTrotaSF               = opt.noTrotaSF
+global_removed          = [n for n in REMOVABLE_WEIGHTS if getattr(opt, n)]     # --noXXX options given
+weightsets              = parse_weightsets(opt.weightset, global_removed)       # [(label, removed weights)]
+useTrotaSF              = any("noTrotaSF" not in removed for label, removed in weightsets)
 dict_samples_file       = opt.dict_samples_file
 hist_folder             = opt.hist_folder
 tmpfold                 = opt.tmpfold
 printcutflow            = opt.printcutflow
 varfile                 = opt.varfile
-do_histos               = True
-do_snapshot             = False
-if do_variations:
-    do_snapshot         = False
-remote_subfolder_name   = datetime.now().strftime("%Y%m%d") #20231229
+do_snapshot             = opt.snapshot
+do_histos               = not do_snapshot
+if do_snapshot and do_variations:
+    print("ERROR: --snapshot cannot be used with --syst")
+    sys.exit(1)
 
 partsize=opt.partsize
 firstfile=opt.firstfile
@@ -66,22 +74,22 @@ partname="" if partsize==-1 else "_part"+str(npart)
 
 if do_variations == True:
     variations          = ["nominal", "pu", "jer", "jesTotal", "pdf_total", "QCDScale", "ISR", "FSR"]
-    if not noTrotaSF:
+    if useTrotaSF:
         variations      += ["TrotaResolved", "TrotaMixed", "TrotaMerged"]
 else :
     variations          = ["nominal"]
 
-remote_folder_name      = "Snapshots"
 if hist_folder=="":
     print("Please provide a valid hist_folder name")
     sys.exit(1)
 folder                  = hist_folder
-repohisto               = folder+"plots/"
+repohisto               = {label: folder+label+"/plots/" for label, removed in weightsets}     # one output folder per weightset
 
 if not os.path.exists(folder):
     os.makedirs(folder)
-if not os.path.exists(repohisto):
-    os.makedirs(repohisto)
+for label, removed in weightsets:
+    if do_histos and not os.path.exists(repohisto[label]):
+        os.makedirs(repohisto[label])
 
 #This does occasionally create problems, removed it
 #    with tempfile.NamedTemporaryFile( mode="w", prefix=f"test_{opt.datasets}", suffix=".txt", dir=repohisto) as f:
@@ -91,49 +99,14 @@ if not os.path.exists(repohisto):
 #    sys.exit(1)
 
 
+# columns saved with --snapshot (the ones missing in a sample, e.g. the MC-only ones in Data, are skipped), plus the w_<weightset> columns
 branches = [
-            # "PuppiMET_T1_pt_nominal", "PuppiMET_T1_phi_nominal", "MHT", 
-            # "Top_mass", "Top_pt", "Top_score", "Top_isolationPtJetsdR04", "Top_isolationPtJetsdR06", "Top_isolationPtJetsdR08", "Top_isolationPtJetsdR12", "Top_isolationNJetsdR04", "Top_isolationNJetsdR06", "Top_isolationNJetsdR08", "Top_isolationNJetsdR12",
-            "nMuon", "nElectron",
-            "nTightElectron", "nTightMuon", "nVetoMuon", "nVetoElectron",
-            "TightElectron_idx", "VetoElectron_idx", "TightMuon_idx", "VetoMuon_idx",
-            "Electron_minDeltaR_fromGoodJets", "Muon_minDeltaR_fromGoodJets",
-            # "nJetBtagLoose", "JetBTagLoose_idx", "nJetBtagMedium", "JetBTagMedium_idx",
+            "run", "luminosityBlock", "event",
             "nGoodJet", "GoodJet_idx",
-            # "nGoodFatJet", "GoodFatJet_idx",
-            # "Jet_jetId", 
-            # "Jet_passJetIdTight", "Jet_passJetIdTightLepVeto", "Jet_jetId_new",
-            # "MT", "MT_T",
-            # "EventTopCategory", "Top_idx",
-            # "MinDelta_phi", "PuppiMET_T1_pt_nominal", "nVetoElectron", "nVetoMuon", "nJetBtagLoose",
-            # "TopResolved_TopScore_nominal", "TopMixed_TopScore_nominal", "TopMerged_TopScore_nominal",
-            # "TopResolved_pt_nominal", "TopMixed_pt_nominal", "FatJet_pt_nominal",
-            # "TopMixed_eta", "TopMixed_phi", "TopMixed_mass_nominal", "TopMixed_idxFatJet", "TopMixed_idxJet0", "TopMixed_idxJet1", "TopMixed_idxJet2",
-            # "TightTopMix_idx", "LooseTopMix_idx", "LooseNOTTightTopMix_idx", "nLooseTopMixed", "nTightTopMixed",
-            # "TopResolved_isMatched_to_GenTop_dR0p2",    "TopResolved_process",
-            # "TopMixed_isMatched_to_GenTop_dR0p2",       "TopMixed_process",
-            # "TopMerged_isMatched_to_GenTop_dR0p2",      "TopMerged_process",
-            # "TopResolved_Independent_idx",  "TopMixed_Independent_idx",     "TopMerged_Independent_idx",
-            # "nTopResolved_forEvWeight",     "nTopMixed_forEvWeight",        "nTopMerged_forEvWeight",
-            # "TopResolved_forEvWeight_idx",  "TopMixed_forEvWeight_idx",     "TopMerged_forEvWeight_idx",
-            # "TopResolved_TrotaSF",          "TopMixed_TrotaSF",             "TopMerged_TrotaSF",           
-            # "ResolvedTrotaEventWeight",
-            # "ResolvedTrotaEventWeightUp",
-            # "ResolvedTrotaEventWeightDown",
-            
-            # "MixedTrotaEventWeight",
-            # "MixedTrotaEventWeightUp",
-            # "MixedTrotaEventWeightDown",
-
-            # "MergedTrotaEventWeight",
-            # "MergedTrotaEventWeightUp",
-            # "MergedTrotaEventWeightDown",
-
-            # "TotalTrotaEventWeight",
-            # "TotalTrotaEventWeightUp",
-            # "TotalTrotaEventWeightDown",
-            # "w_nominal", "w_nominal_woTrota", "puWeight", "SFbtag_nominal",
-            # "triggerSF", "w_topPt", "NLOEW", 
+            "Jet_pt_nominal", "Jet_eta", "Jet_hadronFlavour", "Jet_btagUParTAK4B", "Jet_btagPNetB",
+            "nJetBtagLoose", "nJetBtagMedium",
+            "PuppiMET_T1_pt_nominal",
+            "SFbtag_nominal", "puWeight", "triggerSF", "NLOEW", "w_topPt", "LHEWeight_originalXWGTUP",
            ]
 
 #### LOAD utils/postselection.h ####
@@ -162,14 +135,13 @@ with open(WorkDir+"/TopTagging_WorkingPoints.json", "r") as json_file:
 if do_histos:
     print("You are producing histograms")
     print("local folder histos: {}".format(folder))
+snapshot_folder         = folder+"snapshots/"
+snapshot_dfs            = []        # lazy snapshots, one per sample, all run at the end
 if do_snapshot:
-    print("You are producing snapshot")
-if do_snapshot and remote_subfolder_name == datetime.now().strftime("%Y%m%d"): 
-    print("You are naming the tier subfolder using the current day \n")
-    print("Snapshots folder name : ~/{}/{}/{}".format(username,remote_folder_name, remote_subfolder_name))
-elif do_snapshot:
-    print("You are saving snapshots in local")
-    print("folder name : " + folder)
+    print("You are producing snapshots, no histograms")
+    print("snapshots folder: " + snapshot_folder)
+    if not os.path.exists(snapshot_folder):
+        os.makedirs(snapshot_folder)
 
 
 
@@ -220,29 +192,24 @@ print("Datasets to process: ", [d.label for d in datasets])
 chain                       = {}
 ntot_events                 = {}
 tchains                     = {}
-outfile_dict                = {}
+outfile_dict                = {label: {} for label, removed in weightsets}      # outfile_dict[weightset][sample]
 for d in datasets:
     if hasattr(d, "components"):
         samples_list        = d.components
     else:
         samples_list        = [d]
     for s in samples_list:
-        if tmpfold:
-            repohisto_tmp = "/tmp/"+username+"/"
-            if not os.path.exists(repohisto_tmp):
-                os.makedirs(repohisto_tmp)
-            repohisto_tmp = "/tmp/"+username+"/"+os.path.basename(os.path.normpath(hist_folder))+"/"
-            if not os.path.exists(repohisto_tmp):
-                os.makedirs(repohisto_tmp)
-            repohisto_tmp = "/tmp/"+username+"/"+os.path.basename(os.path.normpath(hist_folder))+"/"+s.label+"/"
-            if not os.path.exists(repohisto_tmp):
-                os.makedirs(repohisto_tmp)
-            outfile_path = repohisto_tmp+s.label+partname+'.root'
-            print("outfile path is: ",outfile_path)
-        else:
-            outfile_path = repohisto+s.label+partname+'.root'
+        for label, removed in weightsets:
+            if tmpfold:
+                repohisto_tmp = "/tmp/"+username+"/"+os.path.basename(os.path.normpath(hist_folder))+"/"+label+"/"+s.label+"/"
+                if not os.path.exists(repohisto_tmp):
+                    os.makedirs(repohisto_tmp)
+                outfile_path = repohisto_tmp+s.label+partname+'.root'
+                print("outfile path is: ",outfile_path)
+            else:
+                outfile_path = repohisto[label]+s.label+partname+'.root'
 
-        outfile_dict[s.label] = outfile_path
+            outfile_dict[label][s.label] = outfile_path
     chain[d.label]          = {}
     ntot_events[d.label]    = {}
     tchains[d.label]        = {}
@@ -260,10 +227,14 @@ for d in datasets:
             samples[d.label][s.label]['strings'][i] = string.replace("root://cms-xrd-global.cern.ch/", "root://xrootd-cms.infn.it/") # root://stormgf2.pi.infn.it/
         chain[d.label][s.label] = samples[d.label][s.label]['strings'][nstart:nend]
         if not "Data" in s.label:
-            ntot_events[d.label][s.label] = np.sum(samples[d.label][s.label]['ntot'][0:totfiles])#the total weight is the one of the sum of all
-            #weights, assuming all histograms will be summed together. A better solution would be to book histograms for the weights
-            #and fix it in post, when summing histos together
-            #ntot_events[d.label][s.label] = np.sum(samples[d.label][s.label]['ntot'][nstart:nend])
+            if (partsize>-1):
+                # part method: every part is normalized to the total weight of ALL the files of the sample,
+                # assuming all the parts will be summed together (-m h of postSelector_submitter_large.py)
+                ntot_events[d.label][s.label] = np.sum(samples[d.label][s.label]['ntot'][0:totfiles])
+            else:
+                # no parts: the output is used alone, so it is normalized to the total weight of the files actually processed
+                # (the first nfiles_max files; all of them when nfiles_max >= number of files, as in the submitters)
+                ntot_events[d.label][s.label] = np.sum(samples[d.label][s.label]['ntot'][nstart:nend])
         else:
             ntot_events[d.label][s.label] = None
         print("Dataset : "+s.label)
@@ -281,7 +252,8 @@ for d in datasets:
                 TFile = ROOT.TFile.Open(f)
                 tchains[d.label][s.label].Add(f)
             except:
-                ntot_events[d.label][s.label] -= samples[d.label][s.label]['ntot'][i]
+                if ntot_events[d.label][s.label] is not None:       # None for Data
+                    ntot_events[d.label][s.label] -= samples[d.label][s.label]['ntot'][nstart+i]       # i counts from the first file of the part
                 print("Could not add file: ", f)
                 if (partsize>=-1):
                     print("Since using the part method we are interrupting the job with an ERROR")
@@ -291,48 +263,14 @@ for d in datasets:
         print("Number of total events in the TChain (MC only, if Data the number is None): ", ntot_events[d.label][s.label])
 
 print("outfile_dict has following entries: ")
-for k, v in outfile_dict.items():
-    print(f"  {k}: {v}")
+for label, removed in weightsets:
+    print(f"  weightset {label} (removed: {', '.join(n for n in REMOVABLE_WEIGHTS if n in removed) or 'none'})")
+    for k, v in outfile_dict[label].items():
+        print(f"    {k}: {v}")
 
 ################### utils ###################
 def cut_string(cut):
     return cut.replace(" ", "").replace("&&","_").replace(">","_g_").replace(".","_").replace("==","_e_")
-
-def split_cuts_keeping_parentheses(cut_string):
-    """
-    Splits a cut string by '&&' while keeping parenthesized expressions together.
-    Example: "PuppiMET_T1_pt_nominal>250 && MinDelta_phi>0.6 && (nVetoElectron==0 && nVetoMuon==0) && nJetBtagLoose>0"
-    Returns: ["PuppiMET_T1_pt_nominal>250", "MinDelta_phi>0.6", "(nVetoElectron==0 && nVetoMuon==0)", "nJetBtagLoose>0"]
-    """
-    cuts = []
-    current_cut = ""
-    paren_depth = 0
-    
-    i = 0
-    while i < len(cut_string):
-        char = cut_string[i]
-        
-        if char == '(':
-            paren_depth += 1
-            current_cut += char
-        elif char == ')':
-            paren_depth -= 1
-            current_cut += char
-        elif char == '&' and i + 1 < len(cut_string) and cut_string[i + 1] == '&' and paren_depth == 0:
-            # Found '&&' at depth 0, so this is a cut separator
-            cuts.append(current_cut.strip())
-            current_cut = ""
-            i += 1  # Skip the second '&'
-        else:
-            current_cut += char
-        
-        i += 1
-    
-    # Add the last cut
-    if current_cut.strip():
-        cuts.append(current_cut.strip())
-    
-    return cuts
 
 ################### GenTopLep ################
 def GenTopLep(df):
@@ -623,230 +561,17 @@ def SF_variations(df):
 
 
 
-def bookhisto(df, regions_def, var, s_cut):
-    h_ = {}
-    for reg in regions_def.keys():
-        h_[reg] = {}
-        for v in var:
-            if v._MConly and not sampleflag: 
-                continue
-            else:
-                # print(v._name+"_"+reg+"_"+s_cut)
-                if regions_def[reg] == "":
-                    if "NoPu" in reg: 
-                        h_[reg][v._name]= df.Histo1D((v._name+"_"+reg," ;"+v._title+"", v._nbins, v._xmin, v._xmax), v._name)
-                    else: 
-                        h_[reg][v._name]= df.Histo1D((v._name+"_"+reg," ;"+v._title+"", v._nbins, v._xmin, v._xmax), v._name, "w_nominal")
-                else:
-                    if "NoPu" in reg: 
-                        h_[reg][v._name]= df.Filter(regions_def[reg]).Histo1D((v._name+"_"+reg," ;"+v._title+"", v._nbins, v._xmin, v._xmax), v._name)
-                    else: 
-                        h_[reg][v._name]= df.Filter(regions_def[reg]).Histo1D((v._name+"_"+reg," ;"+v._title, v._nbins, v._xmin, v._xmax), v._name, "w_nominal")
-        if printcutflow and reg == 'SRTop':
-            cuts = split_cuts_keeping_parentheses(regions_def[reg])
-            # print("Cutflow for region {}:".format(reg))
-            # print(cuts)
-            print("Cutflow for region {}:".format(reg))
-            df_cutflow = df
-            for cut in cuts:
-                df_cutflow = df_cutflow.Filter(cut, cut)
-            df_cutflow.Report().Print()
-    return h_
-
-def bookhisto2D(df, regions_def, var2d, s_cut):
-    h_ = {}
-    # for reg in ["SR"]:
-    #     h_[reg] = {}
-    #     for v in var2d:
-    v = var2d[0]
-    h_["incl"] = {}
-            # if regions_def[reg]=="":
-            #     h_[reg][v._name] = df.Redefine(v._xname, "UnOvBin("+v._xname+","+str(v._nxbins)+","+str(v._xmin)+","+str(v._xmax)+")")\
-            #                          .Redefine(v._yname, "UnOvBin("+v._yname+","+str(v._nybins)+","+str(v._ymin)+","+str(v._ymax)+")")\
-            #                          .Histo2D((v._xname+"Vs"+v._yname+"_"+reg+"_"+s_cut," ;"+v._xtitle+";"+v._ytitle, v._nxbins, v._xmin, v._xmax, v._nybins, v._ymin, v._ymax), v._xname, v._yname)
-            # else:
-            #     h_[reg][v._name] = df.Filter(regions_def[reg])\
-            #                          .Redefine(v._xname, "UnOvBin("+v._xname+","+str(v._nxbins)+","+str(v._xmin)+","+str(v._xmax)+")")\
-            #                          .Redefine(v._yname, "UnOvBin("+v._yname+","+str(v._nybins)+","+str(v._ymin)+","+str(v._ymax)+")")\
-            #                          .Histo2D((v._xname+"Vs"+v._yname+"_"+reg+"_"+s_cut," ;"+v._xtitle+";"+v._ytitle, v._nxbins, v._xmin, v._xmax, v._nybins, v._ymin, v._ymax), v._xname, v._yname)
-    h_["incl"][v._name+"_0TopMer"] = df.Filter("nTightTopMerged==0")\
-                                    .Histo2D((v._xname+"Vs"+v._yname+"_"+"incl_0TopMer"," ;"+v._xtitle+";"+v._ytitle, v._nxbins, v._xmin, v._xmax, v._nybins, v._ymin, v._ymax), v._xname, v._yname, "w_nominal")
-    h_["incl"][v._name+"_1TopMer"] = df.Filter("nTightTopMerged>0")\
-                                    .Histo2D((v._xname+"Vs"+v._yname+"_"+"incl_1TopMer"," ;"+v._xtitle+";"+v._ytitle, v._nxbins, v._xmin, v._xmax, v._nybins, v._ymin, v._ymax), v._xname, v._yname, "w_nominal")
-    return h_
-
-def savehisto(d, dict_h, regions_def, var, s_cut, outfile_dict):
-    histo = {reg: {v._name: ROOT.TH1D(v._name+"_"+reg+"_"+s_cut," ;"+v._title+"", v._nbins, v._xmin, v._xmax) for v in var} for reg in regions_def.keys()}
-    isMC=True
-    if "Data" in d.label: isMC = False
-    if hasattr(d, "components"):
-        s_list = d.components
-    else:
-        s_list = [d]
-    
-    for s in s_list:
-        # if tmpfold:
-        #     repohisto_tmp = "/tmp/"+username+"/"
-        #     if not os.path.exists(repohisto_tmp):
-        #         os.makedirs(repohisto_tmp)
-        #     repohisto_tmp = "/tmp/"+username+"/"+os.path.basename(os.path.normpath(hist_folder))+"/"
-        #     if not os.path.exists(repohisto_tmp):
-        #         os.makedirs(repohisto_tmp)
-        #     repohisto_tmp = "/tmp/"+username+"/"+os.path.basename(os.path.normpath(hist_folder))+"/"+s.label+"/"
-        #     if not os.path.exists(repohisto_tmp):
-        #         os.makedirs(repohisto_tmp)
-
-        #     outfile = ROOT.TFile.Open(repohisto_tmp+s.label+'.root', "RECREATE")
-        # else:
-        #     outfile = ROOT.TFile.Open(repohisto+s.label+'.root', "RECREATE")
-
-        outfile_path    = outfile_dict[s.label]
-        outfile         = ROOT.TFile.Open(outfile_path, "RECREATE")
-        for n, vari in enumerate(variations):
-            for reg in regions_def.keys():
-                for v in var:
-                    if "SFbtag" in v._name: continue
-                    if v._MConly and not isMC:
-                        continue
-                    else:
-                        # da capire come fare il getvalue e dividere le variazioni
-                        if isMC:
-                            if do_variations:
-                                if vari=='nominal':
-                                    h1 = dict_h[d.label][s.label][reg][v._name]["nominal"]
-                                    h1.SetName(h1.GetName()+"_nominal")
-                                    nbins = h1.GetNbinsX()
-                                    if not v._noUnOvFlowbin:
-                                        h1.SetBinContent(1, h1.GetBinContent(0) + h1.GetBinContent(1))
-                                        h1.SetBinError(1, math.sqrt(pow(h1.GetBinError(0),2) + pow(h1.GetBinError(1),2)))
-                                        h1.SetBinContent(nbins, h1.GetBinContent(nbins) + h1.GetBinContent(nbins+1))
-                                        h1.SetBinError(nbins, math.sqrt(pow(h1.GetBinError(nbins),2) + pow(h1.GetBinError(nbins+1),2)))
-                                    if isMC:
-                                        h1.Scale(s.sigma*10**3/ntot_events[d.label][s.label])
-                                    histo_name = h1.GetName()
-                                    if "nominal" not in histo_name : h1.SetName(histo_name+"_nominal")
-                                    outfile.cd()
-                                    h1.Write()
-                                elif vari=="pdf_total":
-                                    hnom = dict_h[d.label][s.label][reg][v._name]["nominal"]
-                                    hup = dict_h[d.label][s.label][reg][v._name][vari+":up"]
-                                    hdown = dict_h[d.label][s.label][reg][v._name][vari+":down"]
-                                    hup.SetName(hup.GetName())
-                                    hdown.SetName(hdown.GetName())
-                                    nbins = hup.GetNbinsX()
-                                    nbins = hdown.GetNbinsX()
-                                    if not v._noUnOvFlowbin:
-                                        hup.SetBinContent(1, hup.GetBinContent(0) + hup.GetBinContent(1))
-                                        hup.SetBinError(1, math.sqrt(pow(hup.GetBinError(0),2) + pow(hup.GetBinError(1),2)))
-                                        hup.SetBinContent(nbins, hup.GetBinContent(nbins) + hup.GetBinContent(nbins+1))
-                                        hup.SetBinError(nbins, math.sqrt(pow(hup.GetBinError(nbins),2) + pow(hup.GetBinError(nbins+1),2)))
-                                        hdown.SetBinContent(1, hdown.GetBinContent(0) + hdown.GetBinContent(1))
-                                        hdown.SetBinError(1, math.sqrt(pow(hdown.GetBinError(0),2) + pow(hdown.GetBinError(1),2)))
-                                        hdown.SetBinContent(nbins, hdown.GetBinContent(nbins) + hdown.GetBinContent(nbins+1))
-                                        hdown.SetBinError(nbins, math.sqrt(pow(hdown.GetBinError(nbins),2) + pow(hdown.GetBinError(nbins+1),2)))
-                                    if isMC:
-                                        hup.Scale(s.sigma*10**3/ntot_events[d.label][s.label])
-                                        hdown.Scale(s.sigma*10**3/ntot_events[d.label][s.label])
-                                        if hup.Integral()>0 and hdown.Integral()>0:
-                                            hup.Scale((hnom.Integral()+(hup.Integral()-hdown.Integral()))/hup.Integral())
-                                            hdown.Scale((hnom.Integral()-(hup.Integral()-hdown.Integral()))/hdown.Integral())
-                                    outfile.cd()
-                                    hup.Write()
-                                    hdown.Write()
-                                else:
-                                    for var_type in ['up', 'down']:
-                                        if f"{vari}:{var_type}" not in dict_h[d.label][s.label][reg][v._name].GetKeys():
-                                            continue
-                                        h1 = dict_h[d.label][s.label][reg][v._name][vari+":"+var_type]
-                                        # h1.SetName(h1.GetName()+"_"+vari+var_type.capitalize())
-                                        histo_name = h1.GetName()
-                                        if vari+"_"+var_type not in histo_name:
-                                            h1.SetName(h1.GetName()+"_"+vari+"_"+var_type)
-                                        if not v._noUnOvFlowbin:
-                                            nbins = h1.GetNbinsX()
-                                            h1.SetBinContent(1, h1.GetBinContent(0) + h1.GetBinContent(1))
-                                            h1.SetBinError(1, math.sqrt(pow(h1.GetBinError(0),2) + pow(h1.GetBinError(1),2)))
-                                            h1.SetBinContent(nbins, h1.GetBinContent(nbins) + h1.GetBinContent(nbins+1))
-                                            h1.SetBinError(nbins, math.sqrt(pow(h1.GetBinError(nbins),2) + pow(h1.GetBinError(nbins+1),2)))
-
-                                        if isMC:
-                                            h1.Scale(s.sigma*10**3/ntot_events[d.label][s.label])
-                                        outfile.cd()
-                                        h1.Write()
-                            else:
-                                histo[reg][v._name] = dict_h[d.label][s.label][reg][v._name].GetValue()      
-                                if not v._noUnOvFlowbin:
-                                    nbins = histo[reg][v._name].GetNbinsX()
-                                    histo[reg][v._name].SetBinContent(1, histo[reg][v._name].GetBinContent(0) + histo[reg][v._name].GetBinContent(1))
-                                    histo[reg][v._name].SetBinError(1, math.sqrt(pow(histo[reg][v._name].GetBinError(0),2) + pow(histo[reg][v._name].GetBinError(1),2)))
-                                    histo[reg][v._name].SetBinContent(nbins, histo[reg][v._name].GetBinContent(nbins) + histo[reg][v._name].GetBinContent(nbins+1))
-                                    histo[reg][v._name].SetBinError(nbins, math.sqrt(pow(histo[reg][v._name].GetBinError(nbins),2) + pow(histo[reg][v._name].GetBinError(nbins+1),2)))
-                                if isMC:
-                                    histo[reg][v._name].Scale(s.sigma*10**3/ntot_events[d.label][s.label])
-                                outfile.cd()
-                                histo[reg][v._name].Write()
-                        else:
-                            histo[reg][v._name] = dict_h[d.label][s.label][reg][v._name].GetValue()
-                            if not v._noUnOvFlowbin:
-                                nbins = histo[reg][v._name].GetNbinsX()
-                                histo[reg][v._name].SetBinContent(1, histo[reg][v._name].GetBinContent(0) + histo[reg][v._name].GetBinContent(1))
-                                histo[reg][v._name].SetBinError(1, math.sqrt(pow(histo[reg][v._name].GetBinError(0),2) + pow(histo[reg][v._name].GetBinError(1),2)))
-                                histo[reg][v._name].SetBinContent(nbins, histo[reg][v._name].GetBinContent(nbins) + histo[reg][v._name].GetBinContent(nbins+1))
-                                histo[reg][v._name].SetBinError(nbins, math.sqrt(pow(histo[reg][v._name].GetBinError(nbins),2) + pow(histo[reg][v._name].GetBinError(nbins+1),2)))
-                            if isMC:
-                                histo[reg][v._name].Scale(s.sigma*10**3/ntot_events[d.label][s.label])
-                            outfile.cd()
-                            histo[reg][v._name].Write()
-        outfile.Close()
-
-# i plot2d per il momento non ci servono, si deve trovare un modo più intelligente di farli
-def savehisto2d(d, h, regions_def, var2d, s_cut):
-    # histo = {reg: {v._name: ROOT.TH2D(v._name+"_"+reg+"_"+s_cut," ;"+v._xtitle+";"+v._ytitle, v._nxbins, v._xmin, v._xmax, v._nybins, v._ymin, v._ymax,) for v in var2d} for reg in regions_def.keys()}
-    histo = {'incl': {
-        'nTopMixedVsnTopResolved_0TopMer': ROOT.TH2D('nTopMixedVsnTopResolved_0TopMer_SR', ' ;Number of TopResolved;Number of TopMixed', 6, -0.5, 5.5, 6, -0.5, 5.5),
-        'nTopMixedVsnTopResolved_1TopMer': ROOT.TH2D('nTopMixedVsnTopResolved_1TopMer_SR', ' ;Number of TopResolved;Number of TopMixed', 6, -0.5, 5.5, 6, -0.5, 5.5)
-    }}
-        
-    if hasattr(d, "components"):
-        s_list = d.components
-    else:
-        s_list = [d]
-    
-    for s in s_list:
-        outfile = ROOT.TFile.Open(repohisto+s.label+'_2D.root', "RECREATE")
-        # for reg in regions_def.keys():
-        #     for v in histo[reg].keys():
-        #         histo[reg][v] = h[d.label][s.label][reg][v].GetValue()
-        #         if isMC:
-        #             histo[reg][v._name].Scale(s.sigma*10**3/ntot_events[d.label][s.label])
-        #         outfile.cd()
-        #         histo[reg][v].Write()
-        if do_variations:
-            histo['incl']['nTightTopMixedVsnTightTopResolved_0TopMer'] = h[d.label][s.label]['incl']['nTightTopMixedVsnTightTopResolved_0TopMer']["nominal"]
-            histo['incl']['nTightTopMixedVsnTightTopResolved_1TopMer'] = h[d.label][s.label]['incl']['nTightTopMixedVsnTightTopResolved_1TopMer']["nominal"]
-        else:
-            histo['incl']['nTightTopMixedVsnTightTopResolved_0TopMer'] = h[d.label][s.label]['incl']['nTightTopMixedVsnTightTopResolved_0TopMer'].GetValue()
-            histo['incl']['nTightTopMixedVsnTightTopResolved_1TopMer'] = h[d.label][s.label]['incl']['nTightTopMixedVsnTightTopResolved_1TopMer'].GetValue()
-
-        # histo['incl']['nTightTopMixedVsnTightTopResolved_0TopMer'].Scale(s.sigma*10**3/ntot_events[d.label][s.label])
-        # histo['incl']['nTightTopMixedVsnTightTopResolved_1TopMer'].Scale(s.sigma*10**3/ntot_events[d.label][s.label])
-        histo['incl']['nTightTopMixedVsnTightTopResolved_0TopMer'].Write()
-        histo['incl']['nTightTopMixedVsnTightTopResolved_1TopMer'].Write()
-        outfile.Close()
-
-
-
-
 
 t0 = datetime.now()
 print("starting loop on datasets: ", [d.label for d in datasets])
 print("Local time :", t0)
 # print("requirements: "+cut)
 
-h                           = {}
-h_2D                        = {}
+# h[weightset][dataset][sample][region][variable]
+h                           = {label: {} for label, removed in weightsets}
+h_2D                        = {label: {} for label, removed in weightsets}
 if do_variations:
-    h_varied                = {}
+    h_varied                = {label: {} for label, removed in weightsets}
 
 for d in datasets:
 
@@ -862,14 +587,17 @@ for d in datasets:
         isMC                = True
         sampleflag          = 1
     c_                      = cut
-    h[d.label]              = {}
-    h_2D[d.label]           = {}
-    if do_variations:
-        h_varied[d.label]   = {}
+    for label, removed in weightsets:
+        h[label][d.label]               = {}
+        h_2D[label][d.label]            = {}
+        if do_variations:
+            h_varied[label][d.label]    = {}
     for s in s_list:
         # remove only this job's own output (not the merged plots/<label>.root when running a part)
-        if os.path.exists(outfile_dict[s.label]):
-            os.remove(outfile_dict[s.label])
+        # with --snapshot no histograms are written: the existing ones are left untouched
+        for label, removed in weightsets:
+            if do_histos and os.path.exists(outfile_dict[label][s.label]):
+                os.remove(outfile_dict[label][s.label])
         print("Processing dataset: ", s.label)
         sample_process      = s.process.split("_")[0] if hasattr(s, "process") else s.label.split("_")[0]
         #------------------------------------------------------------------------------
@@ -903,6 +631,10 @@ for d in datasets:
         Top_Resolved_wp = TopTagging_WorkingPoints[era]["Resolved"]
         Top_Mixed_wp    = TopTagging_WorkingPoints[era]["Mixed"]
         Top_Merged_wp   = TopTagging_WorkingPoints[era]["Merged"]
+
+        if sampleflag and useTrotaSF and TopSF_CorrLibFilePath_dict[era] == "":
+            print(f"ERROR: no Trota SF for {era}, remove them with --noTrotaSF (or noTrotaSF in every --weightset)")
+            sys.exit(1)
 
         #-------------------------------------------------------------------------
         #########################  DF initialization #############################
@@ -955,7 +687,7 @@ for d in datasets:
         df_topsel           = select_top(df_presel, sampleflag, s.year)
         df_topsel           = df_topsel.Define("MT_T", "sqrt(2 * Top_pt * PuppiMET_T1_pt_nominal * (1 - cos(Top_phi - PuppiMET_T1_phi_nominal)))")
         df_TrotaSF          = add_TrotaScaleFactors(df_topsel, sampleflag, sample_process, TopSF_CorrLibFilePath_dict[era])
-        if do_variations and not noTrotaSF:
+        if do_variations and useTrotaSF:
             # df_TrotaSF      = df_TrotaSF.Vary("TotalTrotaEventWeight", "RVec<float>{TotalTrotaEventWeightDown, TotalTrotaEventWeightUp}", variationTags=["down", "up"], variationName="Trota")
             df_TrotaSF      = df_TrotaSF.Vary("ResolvedTrotaEventWeight",   "RVec<float>{ResolvedTrotaEventWeightDown, ResolvedTrotaEventWeightUp}",    variationTags=["down", "up"], variationName="TrotaResolved")\
                                         .Vary("MixedTrotaEventWeight",      "RVec<float>{MixedTrotaEventWeightDown, MixedTrotaEventWeightUp}",          variationTags=["down", "up"], variationName="TrotaMixed")\
@@ -969,26 +701,19 @@ for d in datasets:
                                     #   .Define("TotalTrotaEventWeightDown",      "MergedTrotaEventWeightDown * MixedTrotaEventWeightDown * ResolvedTrotaEventWeightDown")
 
         ########################## Weights application ##########################
+        # one weight column w_<weightset> per weightset, without the weights removed in that weightset
+        df_wnom             = df_TrotaSF
         if sampleflag:
             weights_list    = ["NLOEW", "triggerSF", "(LHEWeight_originalXWGTUP/abs(LHEWeight_originalXWGTUP))", "pdf_totalSF", "QCDScaleSF", "ISRSF", "FSRSF"]
-            if not noSFbtag:
-                weights_list.append("SFbtag_nominal")
-            if not noPuWeight:
-                weights_list.append("puWeight")
-            if not noTopPtWeight:
-                weights_list.append("w_topPt")
-            if not noTrotaSF:
-                weights_list.append("TotalTrotaEventWeight")
-
-            weights_expr            = "*".join(weights_list)
-            weights_expr_woTrota    = "*".join([w for w in weights_list if w != "TotalTrotaEventWeight"])
-            print("weights expression:                  ", weights_expr)
-            print("weights expression without Trota:    ", weights_expr_woTrota)
-            df_wnom         = df_TrotaSF.Define("w_nominal",            f"{weights_expr}")\
-                                        .Define("w_nominal_woTrota",    f"{weights_expr_woTrota}")
+            weights_list   += list(REMOVABLE_WEIGHTS.values())                  # SFbtag_nominal, puWeight, w_topPt, TotalTrotaEventWeight
+            for label, removed in weightsets:
+                removed_columns = [REMOVABLE_WEIGHTS[n] for n in removed]
+                weights_expr    = "*".join([w for w in weights_list if w not in removed_columns])
+                print(f"weights expression {label}: ", weights_expr)
+                df_wnom         = df_wnom.Define("w_"+label,    f"{weights_expr}")
         else:
-            df_wnom         = df_TrotaSF.Define("w_nominal",            "1.0f")\
-                                        .Define("w_nominal_woTrota",    "1.0f")
+            for label, removed in weightsets:
+                df_wnom         = df_wnom.Define("w_"+label,    "1.0f")
 
 
         # command for printing the cutflow, add it in the SRs for all the bkgs 
@@ -998,43 +723,46 @@ for d in datasets:
         if do_snapshot:
             opts        = ROOT.RDF.RSnapshotOptions()
             opts.fLazy  = True
-            fold        = folder
-            snapshot_df = df_wnom.Snapshot("events_nominal", fold+"snap_"+s.label+".root", branches, opts)
-            # print("./"+s.label+".root")
+            columns     = [c for c in branches + ["w_"+label for label, removed in weightsets] if df_wnom.HasColumn(c)]
+            print("snapshot columns: ", columns)
+            snapshot_dfs.append(df_wnom.Snapshot("events_nominal", snapshot_folder+"snap_"+s.label+".root", columns, opts))
         if do_histos:
             s_cut = cut_string(cut)
-            if len(var) != 0 :
-                h[d.label][s.label] = bookhisto(df_wnom, regions_def, var, s_cut)
-            if len(var2d) != 0:
-                h_2D[d.label][s.label] = bookhisto2D(df_wnom, regions_def, var2d, s_cut)
+            for label, removed in weightsets:
+                if len(var) != 0 :
+                    # the cutflow is the same for every weightset: printed only once
+                    h[label][d.label][s.label] = bookhisto(df_wnom, regions_def, var, s_cut, "w_"+label, sampleflag, printcutflow and label == weightsets[0][0])
+                if len(var2d) != 0:
+                    h_2D[label][d.label][s.label] = bookhisto2D(df_wnom, regions_def, var2d, s_cut, "w_"+label)
 
         
         if do_variations:
-            # h [dataset][label][region][variable]
+            # h_varied[weightset][dataset][sample][region][variable]
             print("applying vary")
-            h_varied[d.label][s.label]={}
-            for reg in regions_def.keys():
-                h_varied[d.label][s.label][reg] = {}
-                for v in var:
-                    if "SFbtag" in v._name:
-                        continue
-                    h_varied[d.label][s.label][reg][v._name] = ROOT.RDF.Experimental.VariationsFor(h[d.label][s.label][reg][v._name])
+            for label, removed in weightsets:
+                h_varied[label][d.label][s.label]={}
+                for reg in regions_def.keys():
+                    h_varied[label][d.label][s.label][reg] = {}
+                    for v in var:
+                        if "SFbtag" in v._name:
+                            continue
+                        h_varied[label][d.label][s.label][reg][v._name] = ROOT.RDF.Experimental.VariationsFor(h[label][d.label][s.label][reg][v._name])
 
 if do_histos:
     print("All histos booked!")
     for d in datasets:
-        if len(var):
-            if do_variations:
-                print(h_varied.keys())
-                # print(h_varied[d.label].keys())
-                savehisto(d, h_varied, regions_def, var, s_cut, outfile_dict)
-            else:
-                savehisto(d, h, regions_def, var, s_cut, outfile_dict)
-        if len(var2d) != 0 :
-            savehisto2d(d, h_2D, regions_def, var2d, s_cut)
-        print(d.label + " histos saved")
+        for label, removed in weightsets:
+            if len(var):
+                if do_variations:
+                    savehisto(d, h_varied[label], regions_def, var, s_cut, outfile_dict[label], variations, do_variations, ntot_events)
+                else:
+                    savehisto(d, h[label], regions_def, var, s_cut, outfile_dict[label], variations, do_variations, ntot_events)
+            if len(var2d) != 0 :
+                savehisto2d(d, h_2D[label], regions_def, var2d, s_cut, repohisto[label], do_variations)
+            print(d.label + " histos saved, weightset " + label)
 if do_snapshot:
-    snapshot_df.GetValue()
-    print("Snapshot done!")
+    for snapshot_df in snapshot_dfs:
+        snapshot_df.GetValue()
+    print("Snapshots done!")
 t1 = datetime.now()
 print("Job finished in: ", t1-t0)

@@ -1,7 +1,7 @@
 import os
 import ROOT
 import copy
-import loadHists
+from PhysicsTools.NanoAODTools.postprocessing.postselection.utils.loadHists import loadHists
 import cmsstyle as CMS
 import sys
 import argparse
@@ -52,7 +52,7 @@ if not os.path.exists(inFilePath):
     exit(1)
 else:
     # inFile       = ROOT.TFile.Open(inFilePath, "READ")
-    histoDict    = loadHists.loadHists(inFilePath)
+    histoDict    = loadHists(inFilePath)
 print(histoDict.keys())
 color_map        = {
                     "topmatched":   ROOT.TColor.GetColor("#5790fc"),

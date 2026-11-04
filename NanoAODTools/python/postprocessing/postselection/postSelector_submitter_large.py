@@ -8,6 +8,7 @@ import filecmp
 import subprocess
 from PhysicsTools.NanoAODTools.postprocessing.samples.samples import *
 from PhysicsTools.NanoAODTools.postprocessing.postselection.splitter import sampleSplitter
+from PhysicsTools.NanoAODTools.postprocessing.postselection.utils.weightsets import REMOVABLE_WEIGHTS, parse_weightsets
 
 import yaml
 from pathlib import Path
@@ -24,16 +25,19 @@ parser.add_option(      '--noSFbtag',               dest='noSFbtag',            
 parser.add_option(      '--noPuWeight',             dest='noPuWeight',          action='store_true',    default = False,                                        help='remove PU weight')
 parser.add_option(      '--noTopPtWeight',          dest='noTopPtWeight',       action='store_true',    default = False,                                        help='remove top pt weight')
 parser.add_option(      '--noTrotaSF',              dest='noTrotaSF',           action='store_true',    default = False,                                        help='remove Trota SF')
+parser.add_option(      '--weightset',              dest='weightset',           action='append',        default = None,                                         help='set of weights passed to postSelector.py, repeatable: allWeights or the weights to remove separated by commas, '
+                                                                                                                                                                                         'e.g. --weightset allWeights --weightset noSFbtag --weightset noSFbtag,noTrotaSF; the --noXXX options remove the weight from every weightset. '
+                                                                                                                                                                                         'Each weightset is saved in <outpath>/<removed weights joined by _, or allWeights>/ (parts/ and plots/); default: one weightset, allWeights')
 parser.add_option(      '--printcutflow',           dest='printcutflow',        action='store_true',    default = False,                                        help='print cutflow')
 parser.add_option(      '--varfile',                dest='varfile',             type=str,               default = "../variables.py",                            help='variables file passed to postSelector.py (cuts and regions), resolved from the submission folder')
 
-parser.add_option( '-m',     '--mode',           dest='mode',        type=str ,  default = "s",                 help='modes: s = submit, c = check failed, r = resubmit failed, h = add histograms (hadd <outpath>/parts/<sample>_part*.root into <mergepath>/plots/<sample>.root, merged in a local copy in /tmp/<user>/), d = delete the parts (<outpath>/parts/<sample>_part*.root, and parts/ when empty) after checking <mergepath>/plots/<sample>.root against them; use it as the last step, -m c/r then see the removed parts as failed jobs  ')
+parser.add_option( '-m',     '--mode',           dest='mode',        type=str ,  default = "s",                 help='modes: s = submit, c = check failed, r = resubmit failed, h = add histograms (hadd <outpath>/<weightset>/parts/<sample>_part*.root into <mergepath>/<weightset>/plots/<sample>.root for every weightset, merged in a local copy in /tmp/<user>/), d = delete the parts (<outpath>/<weightset>/parts/<sample>_part*.root, and parts/ when empty) after checking <mergepath>/<weightset>/plots/<sample>.root against them; use it as the last step, -m c/r then see the removed parts as failed jobs  ')
 
 parser.add_option('--config_paths', dest='config_paths', type=str, default = None, help='config file path ')
 parser.add_option('--dict_samples_file', dest='dict_samples_file', type=str, default = None, help='samples file path - will override the one in the config ')
 parser.add_option('--suffix', dest='suffix', type=str,               default = None, help='suffix to add to condor folder name')
-parser.add_option('--partsize', dest='partsize',type=int,    default=-1, help='size of the dataset portion to get. To use if you are doing the a-priori splitting option, together with npart. Split outputs are saved in <outpath>/parts/ ')
-parser.add_option(      '--mergepath',           dest='mergepath',        type=str,    default = "",       help='path where you want to merge histograms, if different from output folder  ')
+parser.add_option('--partsize', dest='partsize',type=int,    default=-1, help='size of the dataset portion to get. To use if you are doing the a-priori splitting option, together with npart. Split outputs are saved in <outpath>/<weightset>/parts/ ')
+parser.add_option(      '--mergepath',           dest='mergepath',        type=str,    default = "",       help='path where you want to merge histograms (in <mergepath>/<weightset>/plots/), if different from output folder  ')
 
 parser.add_option(      '--outpath',           dest='outpath',        type=str,    default = "",       help='path where you want to output histograms, if different from  path of the config file  ')
 parser.add_option(      '--verbose',           dest='verbose',        type=int,    default = 0,       help='output verbosity level  ')
@@ -45,10 +49,9 @@ syst                = opt.syst
 dryrun              = opt.dryrun
 nfiles_max          = 10000
 # nfiles_max          = 10000 if not dryrun else 1
-noSFbtag            = opt.noSFbtag
-noPuWeight          = opt.noPuWeight
-noTopPtWeight       = opt.noTopPtWeight
-noTrotaSF           = opt.noTrotaSF
+global_removed      = [n for n in REMOVABLE_WEIGHTS if getattr(opt, n)]     # --noXXX options given
+weightsets          = parse_weightsets(opt.weightset, global_removed)       # [(label, removed weights)], same folders as in postSelector.py
+print("weightsets: ", [label for label, removed in weightsets])
 printcutflow        = opt.printcutflow
 # absolute path: the jobs run from another folder
 varfile             = os.path.abspath(opt.varfile)
@@ -145,9 +148,8 @@ def sub_writer(run_folder, log_folder, dataset, suffix):
 def runner_writer(run_folder, dataset, dict_samples_file, hist_folder, nfiles_max, syst=False, parts="",filesuffix=""):
     runner_path = run_folder + "runner.sh"
     run_label   = os.path.basename(os.path.normpath(hist_folder))
-    # split jobs (filesuffix="_partN") go to parts/, merged into plots/ with -m h
+    # split jobs (filesuffix="_partN") go to <weightset>/parts/, merged into <weightset>/plots/ with -m h
     dest_subdir = "parts" if filesuffix else "plots"
-    dest_dir    = hist_folder.rstrip("/") + "/" + dest_subdir
     base_tmp    = "/tmp/" + username
 
     pycommand = (
@@ -163,14 +165,11 @@ def runner_writer(run_folder, dataset, dict_samples_file, hist_folder, nfiles_ma
 
     if syst:
         pycommand += " --syst"
-    if noSFbtag:
-        pycommand += " --noSFbtag"
-    if noPuWeight:
-        pycommand += " --noPuWeight"
-    if noTopPtWeight:
-        pycommand += " --noTopPtWeight"
-    if noTrotaSF:
-        pycommand += " --noTrotaSF"
+    for n in global_removed:
+        pycommand += f" --{n}"
+    if opt.weightset is not None:
+        for w in opt.weightset:
+            pycommand += f" --weightset {w}"
     if printcutflow:
         pycommand += " --printcutflow"
 
@@ -189,21 +188,79 @@ def runner_writer(run_folder, dataset, dict_samples_file, hist_folder, nfiles_ma
 
         f.write("cd python/postprocessing/postselection/\n\n")
 
+        # one output file per weightset: postSelector writes it in ${base_tmp}/${run_label}/<weightset>/${dataset}/,
+        # it is copied to <hist_folder>/<weightset>/<parts|plots>/
         f.write(f'base_tmp="{base_tmp}"\n')
         f.write(f'run_label="{run_label}"\n')
         f.write(f'dataset="{dataset}"\n')
-        f.write('outdir="${base_tmp}/${run_label}/${dataset}"\n')
-        f.write('outfile="${outdir}/${dataset}'+filesuffix+'.root"\n')
-        f.write(f'destdir="{dest_dir}"\n\n')
+        f.write(f'hist_folder="{hist_folder.rstrip("/")}"\n')
+        f.write(f'weightsets="{" ".join(label for label, removed in weightsets)}"\n\n')
 
         f.write('echo "base_tmp: ${base_tmp}"\n')
-        f.write('echo "outdir: ${outdir}"\n')
-        f.write('echo "outfile: ${outfile}"\n')
-        f.write('echo "destdir: ${destdir}"\n\n')
+        f.write('echo "hist_folder: ${hist_folder}"\n')
+        f.write('echo "weightsets: ${weightsets}"\n\n')
 
-        f.write('echo "Creating local output directory: ${outdir}"\n')
-        f.write('mkdir -p "${outdir}"\n')
-        f.write('mkdir -p "${destdir}"\n\n')
+        f.write("for weightset in ${weightsets}; do\n")
+        f.write('    mkdir -p "${base_tmp}/${run_label}/${weightset}/${dataset}"\n')
+        f.write(f'    mkdir -p "${{hist_folder}}/${{weightset}}/{dest_subdir}"\n')
+        f.write("done\n\n")
+
+        # ------------------------------------------------------------
+        # Functions to check and copy the output of one weightset
+        # ------------------------------------------------------------
+
+        f.write("check_output() { # $1 = local output file\n")
+        f.write('    local outfile="$1"\n')
+        f.write('    echo "Checking expected output file: ${outfile}"\n')
+        f.write('    if [ ! -s "${outfile}" ]; then\n')
+        f.write('        echo "ERROR: expected output file does not exist or is empty: ${outfile}" >&2\n')
+        f.write('        echo "Listing base tmp area:" >&2\n')
+        f.write('        ls -lthra "${base_tmp}" || true\n')
+        f.write('        echo "Listing run label directory:" >&2\n')
+        f.write('        ls -lthra "${base_tmp}/${run_label}" || true\n')
+        f.write('        echo "Listing expected output directory:" >&2\n')
+        f.write('        ls -lthra "$(dirname "${outfile}")" || true\n')
+        f.write("        exit 1\n")
+        f.write("    fi\n")
+        f.write('    echo "Output file successfully produced:"\n')
+        f.write('    ls -lh "${outfile}"\n')
+        f.write("}\n\n")
+
+        # cp on the EOS fuse mount can return 0 (and ls show the full size from the local cache)
+        # while the file on the server is truncated: check the size seen by the server with xrdfs.
+        # A previous truncated copy can be left with incomplete replicas, which EOS refuses to extend
+        # ("Read-only file system"): remove it before copying, so that a new file is created
+        f.write("copy_output() { # $1 = local output file, $2 = destination folder\n")
+        f.write('    local outfile="$1"\n')
+        f.write('    local destdir="$2"\n')
+        f.write('    echo "Copying ${outfile} to ${destdir}"\n')
+        f.write('    local local_size=$(stat -c %s "${outfile}")\n')
+        f.write('    local remote_file="${destdir}/$(basename "${outfile}")"\n')
+        f.write("    local copy_ok=0\n")
+        f.write("    for attempt in 1 2 3; do\n")
+        f.write('        rm -f "${remote_file}"\n')
+        f.write('        if ! cp "${outfile}" "${destdir}/"; then\n')
+        f.write('            echo "cp failed (attempt ${attempt})" >&2\n')
+        f.write("            sleep 30\n")
+        f.write("            continue\n")
+        f.write("        fi\n")
+        f.write("        for check in 1 2 3 4 5 6; do\n")
+        f.write('            remote_size=$(xrdfs eosuser.cern.ch stat "${remote_file}" 2>/dev/null | awk \'/^Size:/{print $2}\')\n')
+        f.write('            echo "attempt ${attempt}, check ${check}: local size ${local_size}, EOS size ${remote_size}"\n')
+        f.write('            if [ "${remote_size}" = "${local_size}" ]; then\n')
+        f.write("                copy_ok=1\n")
+        f.write("                break 2\n")
+        f.write("            fi\n")
+        f.write("            sleep 10\n")
+        f.write("        done\n")
+        f.write("    done\n")
+        f.write('    if [ "${copy_ok}" -ne 1 ]; then\n')
+        f.write('        echo "ERROR: failed to copy output to ${destdir} (size on EOS does not match the local file)" >&2\n')
+        f.write("        exit 1\n")
+        f.write("    fi\n")
+        f.write('    echo "Final destination content:"\n')
+        f.write('    ls -lthra "${destdir}/"\n')
+        f.write("}\n\n")
 
         # ------------------------------------------------------------
         # Run postSelector
@@ -227,70 +284,16 @@ def runner_writer(run_folder, dataset, dict_samples_file, hist_folder, nfiles_ma
         f.write("fi\n\n")
 
         # ------------------------------------------------------------
-        # Check output file
+        # Check the output files of all the weightsets, then copy them
         # ------------------------------------------------------------
 
-        f.write('echo "Checking expected output file: ${outfile}"\n')
-
-        f.write('if [ ! -s "${outfile}" ]; then\n')
-        f.write('    echo "ERROR: expected output file does not exist or is empty: ${outfile}" >&2\n')
-
-        f.write('    echo "Listing base tmp area:" >&2\n')
-        f.write('    ls -lthra "${base_tmp}" || true\n')
-
-        f.write('    echo "Listing run label directory:" >&2\n')
-        f.write('    ls -lthra "${base_tmp}/${run_label}" || true\n')
-
-        f.write('    echo "Listing expected output directory:" >&2\n')
-        f.write('    ls -lthra "${outdir}" || true\n')
-
-        f.write("    exit 1\n")
-        f.write("fi\n\n")
-
-        f.write('echo "Output file successfully produced:"\n')
-        f.write('ls -lh "${outfile}"\n\n')
-
-        # ------------------------------------------------------------
-        # Copy output
-        # ------------------------------------------------------------
-
-        # cp on the EOS fuse mount can return 0 (and ls show the full size from the local cache)
-        # while the file on the server is truncated: check the size seen by the server with xrdfs.
-        # A previous truncated copy can be left with incomplete replicas, which EOS refuses to extend
-        # ("Read-only file system"): remove it before copying, so that a new file is created
-        f.write('echo "Copying output to ${destdir}"\n')
-        f.write('local_size=$(stat -c %s "${outfile}")\n')
-        f.write('remote_file="${destdir}/$(basename "${outfile}")"\n')
-        f.write("copy_ok=0\n")
-        f.write("for attempt in 1 2 3; do\n")
-        f.write('    rm -f "${remote_file}"\n')
-        f.write('    if ! cp "${outfile}" "${destdir}/"; then\n')
-        f.write('        echo "cp failed (attempt ${attempt})" >&2\n')
-        f.write("        sleep 30\n")
-        f.write("        continue\n")
-        f.write("    fi\n")
-        f.write("    for check in 1 2 3 4 5 6; do\n")
-        f.write('        remote_size=$(xrdfs eosuser.cern.ch stat "${remote_file}" 2>/dev/null | awk \'/^Size:/{print $2}\')\n')
-        f.write('        echo "attempt ${attempt}, check ${check}: local size ${local_size}, EOS size ${remote_size}"\n')
-        f.write('        if [ "${remote_size}" = "${local_size}" ]; then\n')
-        f.write("            copy_ok=1\n")
-        f.write("            break 2\n")
-        f.write("        fi\n")
-        f.write("        sleep 10\n")
-        f.write("    done\n")
+        f.write("for weightset in ${weightsets}; do\n")
+        f.write('    check_output "${base_tmp}/${run_label}/${weightset}/${dataset}/${dataset}'+filesuffix+'.root"\n')
         f.write("done\n\n")
 
-        f.write('if [ "${copy_ok}" -ne 1 ]; then\n')
-        f.write('    echo "ERROR: failed to copy output to ${destdir} (size on EOS does not match the local file)" >&2\n')
-        f.write("    exit 1\n")
-        f.write("fi\n\n")
-
-        # ------------------------------------------------------------
-        # Final check
-        # ------------------------------------------------------------
-
-        f.write('echo "Final destination content:"\n')
-        f.write('ls -lthra "${destdir}/"\n\n')
+        f.write("for weightset in ${weightsets}; do\n")
+        f.write('    copy_output "${base_tmp}/${run_label}/${weightset}/${dataset}/${dataset}'+filesuffix+'.root" "${hist_folder}/${weightset}/'+dest_subdir+'"\n')
+        f.write("done\n\n")
 
         f.write('echo "===== Job finished successfully ====="\n')
         f.write('echo "Date: $(date)"\n')
@@ -360,7 +363,8 @@ def getQueuedJobs(): #returns {JobTag: (state, "cluster.proc", holdReason)} for 
         queued[fields[0]] = (states[fields[1]], fields[2]+"."+fields[3], fields[4] if fields[4] != "undefined" else "")
     return queued
 
-def checkJobHasFailed(condorFolder, sampleLabel, dataset, outfilePath, verbose=0, queueKnown=False): #returns true if the job has to be rerun
+def checkJobHasFailed(condorFolder, sampleLabel, dataset, outfilePaths, verbose=0, queueKnown=False): #returns true if the job has to be rerun
+    # outfilePaths: output files of the job, one per weightset
     # queueKnown: the job is known not to be in the condor queue (checked with condor_q)
     if not os.path.exists(condorFolder):
         if(verbose==1): print ("job does not have condor folder - has to be rerun" )
@@ -397,9 +401,10 @@ def checkJobHasFailed(condorFolder, sampleLabel, dataset, outfilePath, verbose=0
         else:
             if(verbose==1): print ("postselector did end successfully")
 
-    if checkOutputFileIsBad(outfilePath):
-        if(verbose==1): print ("output file "+outfilePath+" is missing, truncated or empty - job has to be rerun")
-        return True
+    for outfilePath in outfilePaths:
+        if checkOutputFileIsBad(outfilePath):
+            if(verbose==1): print ("output file "+outfilePath+" is missing, truncated or empty - job has to be rerun")
+            return True
 
     return False
 
@@ -564,29 +569,37 @@ for d in dss:
         
     for sample in samples:
         nsplit,lastpartsize = sampleSplitter(samplesfile,sample.label,dat,njobs_per_part) 
+        # -m d and -m h: one merge (or removal of the parts) per weightset, <outpath>/<weightset>/parts/ -> <mergepath>/<weightset>/plots/
         if mode == "d":
             if nsplit>1:
-                removeParts(outFolder_path+"/parts", mergeFolder_path+"/plots", sample.label, nsplit, dryrun)
+                for label, removed in weightsets:
+                    print (" weightset "+label)
+                    removeParts(outFolder_path+"/"+label+"/parts", mergeFolder_path+"/"+label+"/plots", sample.label, nsplit, dryrun)
             else:
                 print (" "+sample.label+" was not split, no parts to remove")
             continue
         if mode == "h":
             if nsplit>1:
-                histoMerge(outFolder_path+"/parts", mergeFolder_path+"/plots", sample.label, nsplit, dryrun)
+                for label, removed in weightsets:
+                    print (" weightset "+label)
+                    histoMerge(outFolder_path+"/"+label+"/parts", mergeFolder_path+"/"+label+"/plots", sample.label, nsplit, dryrun)
                 if not dryrun:
                     time.sleep(3)
                     continue
             if nsplit==1:
                 if os.path.normpath(outFolder_path) == os.path.normpath(mergeFolder_path):
-                    print (" "+sample.label+" was not split, output already in "+outFolder_path+"/plots/ - nothing to do")
+                    print (" "+sample.label+" was not split, output already in "+outFolder_path+"/<weightset>/plots/ - nothing to do")
                     continue
-                if not dryrun and not os.path.exists(mergeFolder_path+"/plots"):
-                    print (" warning, merge path: "+mergeFolder_path+"/plots did not exist at time of copying histos, creating it on the fly.")
-                    os.makedirs(mergeFolder_path+"/plots")
-                cpcommand= "cp "+outFolder_path+"/plots/"+sample.label+".root " + mergeFolder_path+"/plots/"+sample.label+".root"
-                print (" histomerge copy command is \n", cpcommand)
+                for label, removed in weightsets:
+                    plotsFolder = mergeFolder_path+"/"+label+"/plots"
+                    if not dryrun and not os.path.exists(plotsFolder):
+                        print (" warning, merge path: "+plotsFolder+" did not exist at time of copying histos, creating it on the fly.")
+                        os.makedirs(plotsFolder)
+                    cpcommand= "cp "+outFolder_path+"/"+label+"/plots/"+sample.label+".root " + plotsFolder+"/"+sample.label+".root"
+                    print (" weightset "+label+", histomerge copy command is \n", cpcommand)
+                    if not dryrun:
+                        os.system(cpcommand)
                 if not dryrun:
-                    os.system(cpcommand)
                     time.sleep(3)
                     continue
         for ns in range(nsplit):
@@ -610,8 +623,8 @@ for d in dss:
 
             hasFailed=False
             jobkey = sample.label + locsuffix # = JobTag in condor.sub
-            # same destination as in runner_writer: split jobs in parts/, unsplit ones in plots/
-            outfile_path = outFolder_path.rstrip("/") + "/" + ("parts" if postsuffix else "plots") + "/" + sample.label + postsuffix + ".root"
+            # same destination as in runner_writer: one file per weightset, split jobs in <weightset>/parts/, unsplit ones in <weightset>/plots/
+            outfile_paths = [outFolder_path.rstrip("/") + "/" + label + "/" + ("parts" if postsuffix else "plots") + "/" + sample.label + postsuffix + ".root" for label, removed in weightsets]
             if queued is not None and jobkey in queued:
                 state, clusterid, holdreason = queued[jobkey]
                 pass_fail_jobs[jobkey] = state
@@ -620,7 +633,7 @@ for d in dss:
                 elif (mode == "s" or mode == "r" or verb>0):
                     print(f" job {jobkey} already in queue ({state}, cluster {clusterid}): skipped")
                 continue
-            if (mode == "c" or mode == "r"): hasFailed= checkJobHasFailed(condor_subfolder,sample.label,dat,outfile_path,0,queued is not None)
+            if (mode == "c" or mode == "r"): hasFailed= checkJobHasFailed(condor_subfolder,sample.label,dat,outfile_paths,0,queued is not None)
 
             pass_fail_jobs[jobkey] = "failed" if hasFailed else "ok"
             if mode=="c":
