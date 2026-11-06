@@ -73,7 +73,7 @@ npart=opt.npart
 partname="" if partsize==-1 else "_part"+str(npart)
 
 if do_variations == True:
-    variations          = ["nominal", "pu", "jer", "jesTotal", "pdf_total", "QCDScale", "ISR", "FSR"]
+    variations          = ["nominal", "pu", "jer", "jesTotal", "pdf_total", "QCDScale", "ISR", "FSR", "triggerSF"]
     if useTrotaSF:
         variations      += ["TrotaResolved", "TrotaMixed", "TrotaMerged"]
 else :
@@ -548,7 +548,8 @@ def SF_variations(df):
                .Vary("pdf_totalSF", "RVec<float>{pdf_totalDown, pdf_totalUp}", variationTags=["down", "up"], variationName="pdf_total")\
                .Vary("QCDScaleSF", "RVec<float>{QCDScaleDown, QCDScaleUp}", variationTags=["down", "up"], variationName="QCDScale")\
                .Vary("ISRSF", "RVec<float>{ISRDown, ISRUp}", variationTags=["down", "up"], variationName="ISR")\
-               .Vary("FSRSF", "RVec<float>{FSRDown, FSRUp}", variationTags=["down", "up"], variationName="FSR")
+               .Vary("FSRSF", "RVec<float>{FSRDown, FSRUp}", variationTags=["down", "up"], variationName="FSR")\
+               .Vary("triggerSF", "RVec<float>{triggerSFDown, triggerSFUp}", variationTags=["down", "up"], variationName="triggerSF")
     return df_sys
 
 
@@ -639,7 +640,9 @@ for d in datasets:
         # df                  = ROOT.RDataFrame("Events", chain[d.label][s.label])
         df                  = ROOT.RDataFrame(tchains[d.label][s.label])
         if sampleflag:
-            df              = df.Define("triggerSF",        f'GetTriggerSF(PuppiMET_T1_pt_nominal, "{era}", "sf")')
+            df              = df.Define("triggerSF",        f'GetTriggerSF(PuppiMET_T1_pt_nominal, "{era}", "sf")')\
+                                .Define("triggerSFUp",      f'GetTriggerSF(PuppiMET_T1_pt_nominal, "{era}", "up")')\
+                                .Define("triggerSFDown",    f'GetTriggerSF(PuppiMET_T1_pt_nominal, "{era}", "down")')     # up/down = sf +/- |1-sf| (TriggerSF/CreateCorrLibFile.py)
         df                  = df.Define("PuppiMET_T1_pt_nominal_vec", "RVec<float>{ (float) PuppiMET_T1_pt_nominal}").Define("PuppiMET_T1_phi_nominal_vec", "RVec<float>{ (float) PuppiMET_T1_phi_nominal}")
         df                  = defineWeights(df, sampleflag, sample_process)
 

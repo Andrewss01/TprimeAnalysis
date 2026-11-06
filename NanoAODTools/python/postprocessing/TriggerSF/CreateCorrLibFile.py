@@ -1,6 +1,14 @@
 import json
 import correctionlib.schemav2 as cs
 
+# Systematic variation of the trigger SF: SF_up/SF_down = SF +/- Delta, with Delta = |1 - SF|
+# (the absolute value matters only for the few bins with SF > 1, e.g. 400-500 GeV in 2023, 2023postBPix and 2024)
+def SF_up(SF_values):
+    return [sf + abs(1 - sf) for sf in SF_values]
+
+def SF_down(SF_values):
+    return [sf - abs(1 - sf) for sf in SF_values]
+
 def CreateCorrectionLibfile(triggerSF):
 
     corr = cs.Correction(
@@ -9,7 +17,7 @@ def CreateCorrectionLibfile(triggerSF):
         inputs=[
             cs.Variable(name="PuppiMET_pt", type="real", description="Puppi MET pt"),
             cs.Variable(name="era", type="string", description="data taking era: 2022, 2022EE, 2023, 2023postBPix, 2024"),
-            cs.Variable(name="type", type="string", description="insert: sf, stat_err")
+            cs.Variable(name="type", type="string", description="insert: sf, stat_err, up (sf + |1-sf|), down (sf - |1-sf|)")
         ],
         output=cs.Variable(
             name="triggerSF", type="real", description="trigger scale factor"
@@ -41,6 +49,26 @@ def CreateCorrectionLibfile(triggerSF):
                                     input="PuppiMET_pt",
                                     edges=[100, 125, 150, 175, 200, 225, 250, 275, 300, 350, 400, 500, 1000],
                                     content=triggerSF[key]["SF_errors"],
+                                    flow="clamp"
+                                )
+                            },
+                            {
+                                "key": "up",
+                                "value": cs.Binning(
+                                    nodetype="binning",
+                                    input="PuppiMET_pt",
+                                    edges=[100, 125, 150, 175, 200, 225, 250, 275, 300, 350, 400, 500, 1000],
+                                    content=SF_up(triggerSF[key]["SF_values"]),
+                                    flow="clamp"
+                                )
+                            },
+                            {
+                                "key": "down",
+                                "value": cs.Binning(
+                                    nodetype="binning",
+                                    input="PuppiMET_pt",
+                                    edges=[100, 125, 150, 175, 200, 225, 250, 275, 300, 350, 400, 500, 1000],
+                                    content=SF_down(triggerSF[key]["SF_values"]),
                                     flow="clamp"
                                 )
                             }
