@@ -86,17 +86,10 @@ folder                  = hist_folder
 repohisto               = {label: folder+label+"/plots/" for label, removed in weightsets}     # one output folder per weightset
 
 if not os.path.exists(folder):
-    os.makedirs(folder)
+    os.makedirs(folder, exist_ok=True)
 for label, removed in weightsets:
     if do_histos and not os.path.exists(repohisto[label]):
-        os.makedirs(repohisto[label])
-
-#This does occasionally create problems, removed it
-#    with tempfile.NamedTemporaryFile( mode="w", prefix=f"test_{opt.datasets}", suffix=".txt", dir=repohisto) as f:
-#    f.write("This folder contains the output histograms from the postSelector step.\n")
-#except Exception as exc:
-#    print(f"ERROR: histogram directory write check failed for {repohisto}: {type(exc)._name}: {exc}", file=sys.stderr, flush=True)
-#    sys.exit(1)
+        os.makedirs(repohisto[label], exist_ok=True)
 
 
 # columns saved with --snapshot (the ones missing in a sample, e.g. the MC-only ones in Data, are skipped), plus the w_<weightset> columns

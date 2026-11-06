@@ -476,8 +476,10 @@ def histoMerge(outpath, mergepath, sampleLabel, nsplit, dryrun=False): #returns 
             print (" ERROR: hadd failed for "+sampleLabel+" (exit status "+str(haddStatus)+"), "+mergepath+"/"+sampleLabel+".root left untouched")
             return False
         shutil.copy(localMerged, tmpMerged)
-        # the copy is always read back byte by byte: opened by ROOT right after the copy, the file on EOS (fuse)
-        # can still have a stale tail and is seen as truncated (kRecovered) even if it is fine
+        # the copy is read back byte by byte (size and content) against the local file, already checked with ROOT above.
+        # It is NOT reopened with ROOT: right after the copy, the file on EOS (fuse) can still have a stale tail and
+        # is seen as truncated (kRecovered) even if it is identical; the merged file on EOS is checked with ROOT
+        # later by -m d (checkMergedFile), before the parts are removed
         if not filecmp.cmp(localMerged, tmpMerged, shallow=False):
             print (" ERROR: copy of the merged file on EOS differs from the local one for "+sampleLabel+", "+mergepath+"/"+sampleLabel+".root left untouched")
             os.remove(tmpMerged)
@@ -488,10 +490,6 @@ def histoMerge(outpath, mergepath, sampleLabel, nsplit, dryrun=False): #returns 
         return False
     finally:
         shutil.rmtree(localFolder, ignore_errors=True)            # the local copies are removed in any case
-    if checkOutputFileIsBad(tmpMerged):
-        print (" ERROR: copy of the merged file to "+tmpMerged+" is broken, "+mergepath+"/"+sampleLabel+".root left untouched")
-        if os.path.exists(tmpMerged): os.remove(tmpMerged)
-        return False
     os.replace(tmpMerged, mergepath+"/"+sampleLabel+".root")
     return True
 
