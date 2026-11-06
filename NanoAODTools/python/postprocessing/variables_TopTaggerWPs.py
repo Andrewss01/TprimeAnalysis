@@ -47,9 +47,11 @@ vars.append(variable(name = "TopResolved_TopScore_nominal",         title= "Top 
 vars.append(variable(name = "TopMixed_TopScore_nominal",            title= "Top Mixed Score",               nbins = 40, xmin = 0, xmax=1, noUnOvFlowbin = True))
 vars.append(variable(name = "TopMerged_TopScore_nominal",           title= "Top Merged Score",              nbins = 40, xmin = 0, xmax=1, noUnOvFlowbin = True))
 
-vars.append(variable(name = "BestTopResolved_score",                title= "Best Top Resolved Score",       nbins = 40, xmin = 0, xmax=1, noUnOvFlowbin = True))
-vars.append(variable(name = "BestTopMixed_score",                   title= "Best Top Mixed Score",          nbins = 40, xmin = 0, xmax=1, noUnOvFlowbin = True))
-vars.append(variable(name = "BestTopMerged_score",                  title= "Best Top Merged Score",         nbins = 40, xmin = 0, xmax=1, noUnOvFlowbin = True))
+# Fine binning (0.0001) to find the working points down to 1% mistag (draw_WorkingPoints.py): with 40 bins (0.025) the 1% of Mixed falls in the last bin.
+# 10000 bins is an exact refinement of the old 40 bins (Rebin(250) gives them back), used for the 10%/5% WPs in TopTagging_WorkingPoints.json
+vars.append(variable(name = "BestTopResolved_score",                title= "Best Top Resolved Score",       nbins = 10000, xmin = 0, xmax=1, noUnOvFlowbin = True))
+vars.append(variable(name = "BestTopMixed_score",                   title= "Best Top Mixed Score",          nbins = 10000, xmin = 0, xmax=1, noUnOvFlowbin = True))
+vars.append(variable(name = "BestTopMerged_score",                  title= "Best Top Merged Score",         nbins = 10000, xmin = 0, xmax=1, noUnOvFlowbin = True))
 
 
 ######## 2D variables for histos
