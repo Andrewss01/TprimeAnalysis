@@ -231,7 +231,7 @@ for d in datasets:
         else:
             ntot_events[d.label][s.label] = None
         print("Dataset : "+s.label)
-        print("# of files to process : ", nstart-nend)
+        print("# of files to process : ", len(chain[d.label][s.label]))
         if len(chain[d.label][s.label])>1:
             print("files strings :\n  {}\n  {}\n  ... \n  {}\n  {}".format(chain[d.label][s.label][0], chain[d.label][s.label][1], chain[d.label][s.label][-2], chain[d.label][s.label][-1]))
         else:
