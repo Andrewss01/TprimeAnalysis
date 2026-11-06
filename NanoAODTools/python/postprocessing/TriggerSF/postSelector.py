@@ -45,17 +45,18 @@ folder                  = hist_folder
 repohisto               = folder+"plots/"
 
 
-if not os.path.exists(folder):
-    os.makedirs(folder)
-if not os.path.exists(repohisto):
-    os.makedirs(repohisto)
+os.makedirs(folder, exist_ok=True)
+os.makedirs(repohisto, exist_ok=True)
 
+# check that the output folder is writable, with a test file of this job only: with a common test.txt the condor jobs
+# starting together removed each other's file and exited silently (Nov 2026, 9 of 48 jobs of the 2024 trigger SFs)
+testfile = repohisto+f"/test_{opt.datasets.replace(',', '_')}_{os.getpid()}.txt"
 try:
-    f = open(repohisto+"/test.txt", "w")
-    f.write("This folder contains the output histograms from the postSelector step.\n")
-    f.close()
-    os.remove(repohisto+"/test.txt")
-except:
+    with open(testfile, "w") as f:
+        f.write("This folder contains the output histograms from the postSelector step.\n")
+    os.remove(testfile)
+except Exception as e:
+    print(f"ERROR: output folder {repohisto} is not writable: {e}")
     sys.exit(1)
 
 
