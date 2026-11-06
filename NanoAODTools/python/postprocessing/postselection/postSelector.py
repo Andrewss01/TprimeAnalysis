@@ -646,7 +646,7 @@ for d in datasets:
         # df                  = ROOT.RDataFrame("Events", chain[d.label][s.label])
         df                  = ROOT.RDataFrame(tchains[d.label][s.label])
         if sampleflag:
-            df              = df.Define("triggerSF",        f'GetTriggerSF(PuppiMET_pt, "{era}", "sf")')
+            df              = df.Define("triggerSF",        f'GetTriggerSF(PuppiMET_T1_pt_nominal, "{era}", "sf")')
         df                  = df.Define("PuppiMET_T1_pt_nominal_vec", "RVec<float>{ (float) PuppiMET_T1_pt_nominal}").Define("PuppiMET_T1_phi_nominal_vec", "RVec<float>{ (float) PuppiMET_T1_phi_nominal}")
         df                  = defineWeights(df, sampleflag, sample_process)
 

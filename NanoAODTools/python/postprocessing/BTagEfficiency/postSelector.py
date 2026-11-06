@@ -254,7 +254,7 @@ for d in datasets:
         print("Processing sample: ", s.label, " era: ", era, " b-tag discriminant: ", bTagAlg_dict[s.year])
 
         df              = ROOT.RDataFrame(tchains[s.label])
-        df              = df.Define("triggerSF",    f'GetTriggerSF(PuppiMET_pt, "{era}", "sf")')
+        df              = df.Define("triggerSF",    f'GetTriggerSF(PuppiMET_T1_pt_nominal, "{era}", "sf")')
         df              = defineWeights(df, sample_process, s.label, ntot_events[s.label])
         df              = preselection(df, s.year)
         df              = df.Define("w_nominal",    weights_expr)
