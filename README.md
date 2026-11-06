@@ -49,6 +49,45 @@ bash standalone/env_standalone.sh build
 source standalone/env_standalone.sh
 ```
 
+### Combine environment (top tagging SF fits and statistical analysis)
+The fits of the top tagging scale factors and the statistical analysis use combine v11.1.0 and CombineHarvester v4.0.0 in `CMSSW_16_0_0`:
+```bash
+# once: installation (lxplus el9)
+cd /afs/cern.ch/user/{u}/{username}
+export SCRAM_ARCH=el9_amd64_gcc13
+cmsrel CMSSW_16_0_0
+cd CMSSW_16_0_0/src
+cmsenv
+
+git clone https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit.git HiggsAnalysis/CombinedLimit
+cd HiggsAnalysis/CombinedLimit && git checkout v11.1.0 && cd ../..
+
+git clone https://github.com/cms-analysis/CombineHarvester.git CombineHarvester
+cd CombineHarvester && git checkout v4.0.0 && cd ..
+
+# physics model of the top tagging SF fits (text2workspace.py -P HiggsAnalysis.CombinedLimit.TagAndProbeExtended:tagAndProbe)
+cp /afs/cern.ch/user/{u}/{username}/TprimeAnalysis/NanoAODTools/python/postprocessing/postselection_prefitTopSF/TagAndProbeExtended.py HiggsAnalysis/CombinedLimit/python/
+
+scramv1 b clean; scramv1 b -j 8
+```
+`TagAndProbeExtended.py` is the model of [cms-jet/ParticleNetSF](https://github.com/cms-jet/ParticleNetSF/blob/ParticleNet_TopW_SFs_NanoV9/TagAndProbeExtended.py) with one change: the SFs are in the range [0, 10] instead of [0, 2] (`SF_%s[1,0.,10]`), so that SFs and their uncertainties are not cut at 2. Use the copy in this repository, not the original one.
+
+Every time, in a new shell:
+```bash
+cd /afs/cern.ch/user/{u}/{username}/CMSSW_16_0_0/src
+cmsenv
+export PYTHONNOUSERSITE=1    # otherwise the packages in ~/.local (e.g. numpy 2) are picked up and text2workspace.py fails with "_ARRAY_API not found"
+```
+
+Check:
+```bash
+combine --help | head -3
+python3 -c "import HiggsAnalysis.CombinedLimit.TagAndProbeExtended; print('OK')"
+which combineTool.py plotImpacts.py
+```
+
+Keep this environment and the NanoAOD Tools standalone one in separate shells: `collectHistograms.py`, `symmetrizeHistos.py` and `makePositiveHistos.py` run in the standalone environment (`PhysicsTools` imports), while the scripts written by `collectHistograms.py` (`combine_script.sh`, `fit_procedure.sh`), `extract_ScaleFactors.py` and `postselection/TopSF-corrections/produceTrotaCorrLib.py` (`correctionlib`) run in `CMSSW_16_0_0`.
+
 
 ## Usage
 ### Step 0: env setup
