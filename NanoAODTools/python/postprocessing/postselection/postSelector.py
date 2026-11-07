@@ -195,8 +195,7 @@ for d in datasets:
         for label, removed in weightsets:
             if tmpfold:
                 repohisto_tmp = "/tmp/"+username+"/"+os.path.basename(os.path.normpath(hist_folder))+"/"+label+"/"+s.label+"/"
-                if not os.path.exists(repohisto_tmp):
-                    os.makedirs(repohisto_tmp)
+                os.makedirs(repohisto_tmp, exist_ok=True)      # exist_ok: parts of the same sample started together on one node
                 outfile_path = repohisto_tmp+s.label+partname+'.root'
                 print("outfile path is: ",outfile_path)
             else:
