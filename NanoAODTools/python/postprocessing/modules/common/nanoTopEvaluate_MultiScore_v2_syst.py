@@ -216,8 +216,8 @@ class nanoTopevaluate_MultiScore(Module):
                 scores_         = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy().flatten().tolist()
             elif self.year in [2024]:
                 scores_True     = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy()[:,1].flatten()
-                scores_False    = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy()[:,0].flatten()
-                scores_QCD      = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy()[:,2].flatten()
+                # scores_False    = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy()[:,0].flatten() # not used (each line is a full DNN evaluation)
+                # scores_QCD      = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy()[:,2].flatten() # not used (each line is a full DNN evaluation)
                 scores_         = scores_True.tolist() # True/(True+QCD)
             
             for i, s in enumerate(self.scenarios):
@@ -247,8 +247,8 @@ class nanoTopevaluate_MultiScore(Module):
                 scores_         = self.modelRes({"jet0": jets_dnn_concatenated[:,0,:-2], "jet1": jets_dnn_concatenated[:,1,:-2], "jet2": jets_dnn_concatenated[:,2,:-2]}).numpy().flatten().tolist()
             elif self.year in [2024]:
                 scores_True     = self.modelRes({"jet": jets_dnn_concatenated}).numpy()[:,1].flatten()
-                scores_False    = self.modelRes({"jet": jets_dnn_concatenated}).numpy()[:,0].flatten()
-                scores_QCD      = self.modelRes({"jet": jets_dnn_concatenated}).numpy()[:,2].flatten()
+                # scores_False    = self.modelRes({"jet": jets_dnn_concatenated}).numpy()[:,0].flatten() # not used (each line is a full DNN evaluation)
+                # scores_QCD      = self.modelRes({"jet": jets_dnn_concatenated}).numpy()[:,2].flatten() # not used (each line is a full DNN evaluation)
                 scores_         = scores_True.tolist() # True/(True+QCD)
 
             for i, s in enumerate(self.scenarios):
