@@ -750,7 +750,7 @@ for d in datasets:
                     # the cutflow is the same for every weightset: printed only once
                     h[label][d.label][s.label] = bookhisto(df_wnom, regions_def, var, s_cut, "w_"+label, sampleflag, printcutflow and label == weightsets[0][0])
                 if len(var2d) != 0:
-                    h_2D[label][d.label][s.label] = bookhisto2D(df_wnom, regions_def, var2d, s_cut, "w_"+label)
+                    h_2D[label][d.label][s.label] = bookhisto2D(df_wnom, regions_def, var2d, "w_"+label)
 
         
         if do_variations:
@@ -775,7 +775,7 @@ if do_histos:
                 else:
                     savehisto(d, h[label], regions_def, var, s_cut, outfile_dict[label], variations, do_variations, ntot_events)
             if len(var2d) != 0 :
-                savehisto2d(d, h_2D[label], regions_def, var2d, s_cut, repohisto[label], do_variations)
+                savehisto2d(d, h_2D[label], regions_def, var2d, repohisto[label], ntot_events)
             print(d.label + " histos saved, weightset " + label)
 if do_snapshot:
     for snapshot_df in snapshot_dfs:
