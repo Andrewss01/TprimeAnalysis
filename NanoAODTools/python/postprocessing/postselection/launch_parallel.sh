@@ -27,8 +27,8 @@
 ####################################################################################################
 
 export OPT=s
-export OUTPATH="/eos/user/o/oiorio/tDM/FrameworkTestV5/"
-export MERGEPATH="/eos/user/o/oiorio/tDM/MergedV5/"
+export OUTPATH="/eos/user/f/fscrivan/TprimeAnalysis_running/postselector_results/2024/n_split_running/"
+export MERGEPATH="/eos/user/f/fscrivan/TprimeAnalysis_running/postselector_results/2024/merged_running/"
 export CONFIGPATH="../config/config.yaml" 
 
 ### TTBar
@@ -58,5 +58,5 @@ python3 postSelector_submitter_large.py -d DataEGamma_2024 --suffix TestParallel
 python3 postSelector_submitter_large.py -d DataMuon_2024 --suffix TestParallelV3 --noSFbtag --noTrotaSF --config_paths $CONFIGPATH --partsize 20 -m $OPT --mergepath $MERGEPATH --outpath $OUTPATH
 #
 #t/ttDM
-python3 postSelector_submitter_large.py -d TBDM_s_2024,TBDM_ps_2024,TTDM_s_2024,TTDM_ps_2024,TWDM_s_2024,TWDM_ps_2024 --suffix TestParallelV3 --noSFbtag --noTrotaSF --config_path $CONFIGPATH --partsize 25 -m $OPT --mergepath $MERGEPATH --outpath $OUTPATH --dict_samples_file "../samples/dict_samples_2024_tdm.json"
+python3 postSelector_submitter_large.py -d TBDM_s_2024,TBDM_ps_2024,TTDM_s_2024,TTDM_ps_2024,TWDM_s_2024,TWDM_ps_2024 --suffix TestParallelV3 --noSFbtag --noTrotaSF --config_paths $CONFIGPATH --partsize 25 -m $OPT --mergepath $MERGEPATH --outpath $OUTPATH --dict_samples_file "../samples/dict_samples_2024_tdm.json"
 #
