@@ -253,14 +253,27 @@ if submit:
                 if sample.year not in [2024]:
                     modules_list.append(f'BTagSF(year={sample.year},EE={sample.EE})')
                 if calculate_systematics:
+                    # for each object: calculator with split JER (nominal, JES, jer0...jer5) + calculator with splitJER=False writing only the unsplit jerup/jerdown (same seed -> same nominal)
                     modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK4PFPuppi",forMET=False,doJer=True),jetType="AK4PFPuppi",isMC={isMC},forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv={nanoaod_version})')
+                    modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK4PFPuppi",forMET=False,doJer=True,splitJER=False),jetType="AK4PFPuppi",isMC={isMC},forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv={nanoaod_version},onlyVariations=["jerup","jerdown"])')
                     modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK8PFPuppi",forMET=False,doJer=True),jetType="AK8PFPuppi",isMC={isMC},forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv={nanoaod_version})')
+                    modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK8PFPuppi",forMET=False,doJer=True,splitJER=False),jetType="AK8PFPuppi",isMC={isMC},forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv={nanoaod_version},onlyVariations=["jerup","jerdown"])')
                     modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK4PFPuppi",forMET=True,doJer=True),jetType="AK4PFPuppi",isMC={isMC},forMET=True,PuppiMET=True,addHEM2018Issue=False,NanoAODv={nanoaod_version})')
+                    modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK4PFPuppi",forMET=True,doJer=True,splitJER=False),jetType="AK4PFPuppi",isMC={isMC},forMET=True,PuppiMET=True,addHEM2018Issue=False,NanoAODv={nanoaod_version},onlyVariations=["jerup","jerdown"])')
+                # JES/JER scenarios of the top candidates (only with --syst: *_syst modules + CMSJMECalculators branches);
+                # top_scenarios is defined in CMSJMECalculatorsHelper, imported by crab_script.py
+                if calculate_systematics:
+                    eraTag = str(sample.year)
+                    if sample.year == 2022 and sample.EE: eraTag += "EE"
+                    if sample.year == 2023 and sample.EE: eraTag += "BPix"
+                    topScenarios = f',scenarios=top_scenarios("{eraTag}")'
+                else:
+                    topScenarios = ''
                 modules_list.append(f'GenPart_MomFirstCp(flavour="-5,-4,-3,-2,-1,1,2,3,4,5,6,-6,24,-24")')
                 modules_list.append(f'nanoprepro()')
-                modules_list.append(f'nanoTopcand(isMC={isMC})')
+                modules_list.append(f'nanoTopcand(isMC={isMC}{topScenarios})')
                 modules_list.append(f'globalvar()')
-                modules_list.append(f'nanoTopevaluate_MultiScore(year={sample.year},modelMix_path="{modelMix_path}",modelRes_path="{modelRes_path}")')
+                modules_list.append(f'nanoTopevaluate_MultiScore(year={sample.year},modelMix_path="{modelMix_path}",modelRes_path="{modelRes_path}"{topScenarios})')
 
         else:
             if sample.year==2018:

@@ -116,15 +116,20 @@ def fill_jets(year, jets_dnn, j0, j1, j2, sumjet, fj_phi, fj_eta, idx_top, scena
 
 
 class nanoTopevaluate_MultiScore(Module):
-    def __init__(self, modelMix_path, modelRes_path, isMC=1, year=2018):
+    def __init__(self, modelMix_path, modelRes_path, isMC=1, year=2018, scenarios=None):
+        # scenarios (MC): list of JES/JER scenarios of the TopMixed/TopResolved scores,
+        #                 e.g. top_scenarios(eraTag) from CMSJMECalculatorsHelper; None -> old default list
         self.modelMix_path = modelMix_path
         self.modelRes_path = modelRes_path
         self.modelMix      = tf.keras.models.load_model(modelMix_path, compile=False)
         self.modelRes      = tf.keras.models.load_model(modelRes_path, compile=False)
         self.isMC = isMC
         self.year = year
-        if isMC : self.scenarios = ["nominal", "jesTotalup", "jesTotaldown", "jerup", "jerdown"]
+        if isMC:
+            if scenarios is None: self.scenarios = ["nominal", "jesTotalup", "jesTotaldown", "jerup", "jerdown"]
+            else:                 self.scenarios = list(scenarios)
         else: self.scenarios = ["nominal"]
+        print("nanoTopevaluate_MultiScore scenarios:", self.scenarios)
         pass
  
 

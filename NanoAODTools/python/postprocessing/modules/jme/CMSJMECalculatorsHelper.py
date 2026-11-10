@@ -14,6 +14,40 @@ loadJMESystematicsCalculators() # https://cms-jerc.web.cern.ch/Recommendations/
 cvmfsPOGpath = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/"
 jerSmearingToolFile = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/JER-Smearing/2026-09-18/jer_smear.json.gz" # JERSmear v2 (min cut 0.01 on the smeared pt, as in CMSSW)
 
+# ---- JES/JER uncertainty sources (MC), https://cms-jme-jerc.docs.cern.ch/recommendations/uncertainties/#treatment-alternatives ----
+# eraTag = "2022", "2022EE", "2023", "2023BPix", "2024": also the suffix of the uncorrelated Regrouped sources in the json (e.g. Regrouped_Absolute_2024)
+# JES Regrouped set: sources without era suffix correlated across years, with era suffix uncorrelated
+JES_REGROUPED = [
+    "Absolute",  "Absolute_{era}",
+    "BBEC1",     "BBEC1_{era}",
+    "EC2",       "EC2_{era}",
+    "FlavorQCD",
+    "HF",        "HF_{era}",
+    "RelativeBal",
+    "RelativeSample_{era}",
+]
+# JER split in 6 (|eta|,pt) regions (config.splitJER = True):
+#   jer0: |eta|<1.93           jer1: 1.93<|eta|<2.5
+#   jer2: 2.5<|eta|<3, pt<50   jer3: 2.5<|eta|<3, pt>50
+#   jer4: 3<|eta|<5,   pt<50   jer5: 3<|eta|<5,   pt>50
+JER_SPLIT = ["jer"+str(k) for k in range(6)]
+
+def jes_sources(eraTag):
+    """config.jesUncertainties: Total (kept, to use the unsplit JES in step 2) + 11 Regrouped"""
+    return ["Total"] + ["Regrouped_" + s.format(era=eraTag) for s in JES_REGROUPED]
+
+def top_scenarios(eraTag):
+    """scenarios of the TopMixed/TopResolved pt, mass, score branches (MC), passed to nanoTopcand and nanoTopevaluate_MultiScore:
+    nominal + jes<source>up/down (Total + 11 Regrouped) + jer up/down (unsplit, from the calculator with splitJER=False) + jer0...jer5 up/down
+    = 1 + 2*12 + 2 + 2*6 = 39.
+    The candidates use only jets/fatjets with |eta|<2.5 (tools.get_jet/get_fatjet): for them jer2...jer5 are identical to nominal (kept anyway)."""
+    scenarios = ["nominal"]
+    for source in jes_sources(eraTag):
+        scenarios += ["jes"+source+"up", "jes"+source+"down"]
+    for jer in ["jer"] + JER_SPLIT:
+        scenarios += [jer+"up", jer+"down"]
+    return scenarios
+
 versiontag = {
     "2018"      :   "2018_UL",
     "2022"      :   "Run3-22CDSep23-Summer22-NanoAODv12/2026-06-05",
@@ -102,8 +136,10 @@ jertag = {
         }
     }
 }
-def configcreate(isMC=True, year=2022, EE=False, runPeriod="C", jetType="AK4PFPuppi", forMET=False, doJer=True):
-    print("isMC, year, EE, runPeriod, jetType, forMET, doJer:", isMC, year, EE, runPeriod, jetType, forMET, doJer)
+def configcreate(isMC=True, year=2022, EE=False, runPeriod="C", jetType="AK4PFPuppi", forMET=False, doJer=True, splitJER=True):
+    # splitJER=True : JER split in jer0...jer5 (no jerup/jerdown, CMSJMECalculators gives either the split or the unsplit JER)
+    # splitJER=False: unsplit jerup/jerdown -> in step 1 a second calculator with splitJER=False writes only jerup/jerdown
+    print("isMC, year, EE, runPeriod, jetType, forMET, doJer, splitJER:", isMC, year, EE, runPeriod, jetType, forMET, doJer, splitJER)
     if forMET:
         configCls = calcConfigs.METVariations
     elif "AK4" in jetType:
@@ -118,7 +154,8 @@ def configcreate(isMC=True, year=2022, EE=False, runPeriod="C", jetType="AK4PFPu
         if EE: year_ += "EE"
     elif year == 2023:
         if EE: year_ += "BPix"
-    
+    eraTag = year_ # era key without run period: suffix of the uncorrelated Regrouped JES sources (e.g. Regrouped_Absolute_2024)
+
     tagver = versiontag[year_]
     print("tagver: ", tagver)
     if runPeriod != ".": 
@@ -137,12 +174,15 @@ def configcreate(isMC=True, year=2022, EE=False, runPeriod="C", jetType="AK4PFPu
     config.jecTag   = jestag["MC" if isMC else "DATA"][jetType][year_]
     config.jecLevel = "L1L2L3Res"
     if isMC:
-        config.jesUncertainties = ["Total", "AbsoluteMPFBias", "AbsoluteScale", "AbsoluteStat", "Fragmentation", "PileUpDataMC", "PileUpPtRef", "RelativeFSR", "RelativeStatFSR", "SinglePionECAL", "SinglePionHCAL", "TimePtEta"]
-    # print("config.jesUncertainties ", config.jesUncertainties)
+        if year_ == "2018":
+            config.jesUncertainties = ["Total", "AbsoluteMPFBias", "AbsoluteScale", "AbsoluteStat", "Fragmentation", "PileUpDataMC", "PileUpPtRef", "RelativeFSR", "RelativeStatFSR", "SinglePionECAL", "SinglePionHCAL", "TimePtEta"]
+        else:
+            config.jesUncertainties = jes_sources(eraTag) # Total + 11 Regrouped
+    print("JES uncertainties:", config.jesUncertainties)
     if doJer and isMC:
         print("JER :", jertag["MC" if isMC else "DATA"][jetType][year_])
         config.jerTag               = jertag["MC"][jetType][year_]
-        config.splitJER             = False
+        config.splitJER             = splitJER and (year_ != "2018") # jer0 ... jer5 (6 |eta|,pt regions)
         config.jsonFileSmearingTool = jerSmearingToolFile
         config.smearingToolName     = "JERSmear"
 
@@ -161,8 +201,3 @@ def configcreate(isMC=True, year=2022, EE=False, runPeriod="C", jetType="AK4PFPu
         calc = config.create() # ROOT.FatJetVariationsCalculator(config.create()) 
     # return config.create()
     return calc
-
-#  "FlavorQCD",  
-#  "PileUpPtBB", "PileUpPtEC1", "PileUpPtEC2", "PileUpPtHF", 
-#  "RelativeJEREC1", "RelativeJEREC2", "RelativeJERHF", "RelativePtBB", "RelativePtEC1", "RelativePtEC2", "RelativePtHF", "RelativeBal", "RelativeSample", "RelativeStatEC",  
-#  "RelativeStatHF" 

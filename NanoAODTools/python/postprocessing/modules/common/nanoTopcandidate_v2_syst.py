@@ -42,10 +42,15 @@ def highpt_top(j0, j1, j2, fj, s):
 
 
 class nanoTopcand(Module):
-    def __init__(self, isMC=1):
+    def __init__(self, isMC=1, scenarios=None):
+        # scenarios (MC): list of JES/JER scenarios of the TopMixed/TopResolved pt and mass,
+        #                 e.g. top_scenarios(eraTag) from CMSJMECalculatorsHelper; None -> old default list
         self.isMC = isMC
-        if isMC : self.scenarios = ["nominal", "jesTotalup", "jesTotaldown", "jerup", "jerdown"]
+        if isMC:
+            if scenarios is None: self.scenarios = ["nominal", "jesTotalup", "jesTotaldown", "jerup", "jerdown"]
+            else:                 self.scenarios = list(scenarios)
         else: self.scenarios = ["nominal"]
+        print("nanoTopcand scenarios:", self.scenarios)
         pass
     def beginJob(self):
         pass
