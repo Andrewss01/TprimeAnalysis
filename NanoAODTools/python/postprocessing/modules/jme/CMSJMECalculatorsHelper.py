@@ -12,6 +12,7 @@ from CMSJMECalculators import config as calcConfigs
 loadJMESystematicsCalculators() # https://cms-jerc.web.cern.ch/Recommendations/
 
 cvmfsPOGpath = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/"
+jerSmearingToolFile = "/cvmfs/cms-griddata.cern.ch/cat/metadata/JME/JER-Smearing/2026-09-18/jer_smear.json.gz" # JERSmear v2 (min cut 0.01 on the smeared pt, as in CMSSW)
 
 versiontag = {
     "2018"      :   "2018_UL",
@@ -142,7 +143,7 @@ def configcreate(isMC=True, year=2022, EE=False, runPeriod="C", jetType="AK4PFPu
         print("JER :", jertag["MC" if isMC else "DATA"][jetType][year_])
         config.jerTag               = jertag["MC"][jetType][year_]
         config.splitJER             = False
-        config.jsonFileSmearingTool = "/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/jer_smear.json.gz" #path to your json file with jer smearing tool
+        config.jsonFileSmearingTool = jerSmearingToolFile
         config.smearingToolName     = "JERSmear"
 
     if "AK8" in jetType:
@@ -150,7 +151,7 @@ def configcreate(isMC=True, year=2022, EE=False, runPeriod="C", jetType="AK4PFPu
         config.jetAlgoSubjet        = "AK4PFPuppi" if year_ !="2018" else "AK4PFchs"
         config.jecTagSubjet         = jestag["MC" if isMC else "DATA"]["AK4PFPuppi" if year_ !="2018" else "AK4PFchs"][year_]
         config.jecLevelSubjet       = "L1L2L3Res"
-        config.jsonFileSmearingTool = "/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/jer_smear.json.gz" #path to your json file with jer smearing tool
+        config.jsonFileSmearingTool = jerSmearingToolFile
         config.smearingToolName     = "JERSmear"
     if "AK4" in jetType:
         calc = config.create() # ROOT.JetVariationsCalculator(config.create())
