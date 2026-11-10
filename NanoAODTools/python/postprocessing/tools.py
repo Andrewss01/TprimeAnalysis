@@ -227,288 +227,54 @@ def top_p4(category, top, jets, fatjets):
         print("Error idx Top category not ecpected : ", category)
     return p4
 
-def top2j1fj(fj, j0, j1, s=None, dr0=None, dr1=None):
+def scenario_p4(obj, s=None):
+    """TLorentzVector of a jet/fatjet in the scenario s:
+    s=None -> NanoAOD pt/mass; otherwise pt_<s>/mass_<s> written by CMSJMECalculators (nominal, jesTotalup, jesRegrouped_Absolute_2024up, jerup, jer0up, ...)"""
     p4 = ROOT.TLorentzVector()
+    if s == None:
+        p4.SetPtEtaPhiM(obj.pt, obj.eta, obj.phi, obj.mass)
+    else:
+        p4.SetPtEtaPhiM(getattr(obj, "pt_"+s), obj.eta, obj.phi, getattr(obj, "mass_"+s))
+    return p4
+
+def top2j1fj(fj, j0, j1, s=None, dr0=None, dr1=None):
+    # jets inside the fatjet (dR<0.8) are not added again: top = fatjet + jets outside the fatjet
     if dr0==None:
-        dr0 = deltaR(fj,j0)<0.8 
+        dr0 = deltaR(fj,j0)<0.8
         dr1 = deltaR(fj,j1)<0.8
     if dr0*dr1:
-        if s == "nominal":
-            p4.SetPtEtaPhiM(fj.pt_nominal, fj.eta, fj.phi, fj.mass_nominal)
-        elif s == "jesTotalup":
-            p4.SetPtEtaPhiM(fj.pt_jesTotalup, fj.eta, fj.phi, fj.mass_jesTotalup)
-        elif s == "jesTotaldown":
-            p4.SetPtEtaPhiM(fj.pt_jesTotaldown, fj.eta, fj.phi, fj.mass_jesTotaldown)
-        elif s == "jerup":
-            p4.SetPtEtaPhiM(fj.pt_jerup, fj.eta, fj.phi, fj.mass_jerup)
-        elif s == "jerdown":
-            p4.SetPtEtaPhiM(fj.pt_jerdown, fj.eta, fj.phi, fj.mass_jerdown)
-        elif s == None:
-            p4.SetPtEtaPhiM(fj.pt, fj.eta, fj.phi, fj.mass)
+        p4 = scenario_p4(fj, s)
     elif dr0:
-        fj_p4, j1_p4 = ROOT.TLorentzVector(), ROOT.TLorentzVector()
-        if s == "nominal":
-            fj_p4.SetPtEtaPhiM(fj.pt_nominal, fj.eta, fj.phi, fj.mass_nominal)
-            j1_p4.SetPtEtaPhiM(j1.pt_nominal, j1.eta, j1.phi, j1.mass_nominal)
-        elif s == "jesTotalup":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotalup, fj.eta, fj.phi, fj.mass_jesTotalup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotalup, j1.eta, j1.phi, j1.mass_jesTotalup)
-        elif s == "jesTotaldown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotaldown, fj.eta, fj.phi, fj.mass_jesTotaldown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotaldown, j1.eta, j1.phi, j1.mass_jesTotaldown)
-        elif s == "jerup":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerup, fj.eta, fj.phi, fj.mass_jerup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerup, j1.eta, j1.phi, j1.mass_jerup)
-        elif s == "jerdown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerdown, fj.eta, fj.phi, fj.mass_jerdown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerdown, j1.eta, j1.phi, j1.mass_jerdown)
-        elif s == None:
-            fj_p4.SetPtEtaPhiM(fj.pt, fj.eta, fj.phi, fj.mass)
-            j1_p4.SetPtEtaPhiM(j1.pt, j1.eta, j1.phi, j1.mass)
-        p4 = fj_p4 + j1_p4
+        p4 = scenario_p4(fj, s) + scenario_p4(j1, s)
     elif dr1:
-        fj_p4, j0_p4 = ROOT.TLorentzVector(), ROOT.TLorentzVector()
-        if s == "nominal":
-            fj_p4.SetPtEtaPhiM(fj.pt_nominal, fj.eta, fj.phi, fj.mass_nominal)
-            j0_p4.SetPtEtaPhiM(j0.pt_nominal, j0.eta, j0.phi, j0.mass_nominal)
-        elif s == "jesTotalup":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotalup, fj.eta, fj.phi, fj.mass_jesTotalup)
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotalup, j0.eta, j0.phi, j0.mass_jesTotalup)
-        elif s == "jesTotaldown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotaldown, fj.eta, fj.phi, fj.mass_jesTotaldown)
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotaldown, j0.eta, j0.phi, j0.mass_jesTotaldown)
-        elif s == "jerup":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerup, fj.eta, fj.phi, fj.mass_jerup)
-            j0_p4.SetPtEtaPhiM(j0.pt_jerup, j0.eta, j0.phi, j0.mass_jerup)
-        elif s == "jerdown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerdown, fj.eta, fj.phi, fj.mass_jerdown)
-            j0_p4.SetPtEtaPhiM(j0.pt_jerdown, j0.eta, j0.phi, j0.mass_jerdown)
-        elif s == None:
-            fj_p4.SetPtEtaPhiM(fj.pt, fj.eta, fj.phi, fj.mass)
-            j0_p4.SetPtEtaPhiM(j0.pt, j0.eta, j0.phi, j0.mass)
-        p4 = fj_p4 + j0_p4
+        p4 = scenario_p4(fj, s) + scenario_p4(j0, s)
     else:
-        fj_p4, j0_p4, j1_p4 = ROOT.TLorentzVector(), ROOT.TLorentzVector(), ROOT.TLorentzVector()
-        if s == "nominal":
-            fj_p4.SetPtEtaPhiM(fj.pt_nominal, fj.eta, fj.phi, fj.mass_nominal)
-            j0_p4.SetPtEtaPhiM(j0.pt_nominal, j0.eta, j0.phi, j0.mass_nominal)
-            j1_p4.SetPtEtaPhiM(j1.pt_nominal, j1.eta, j1.phi, j1.mass_nominal)
-        elif s == "jesTotalup":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotalup, fj.eta, fj.phi, fj.mass_jesTotalup)
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotalup, j0.eta, j0.phi, j0.mass_jesTotalup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotalup, j1.eta, j1.phi, j1.mass_jesTotalup)
-        elif s == "jesTotaldown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotaldown, fj.eta, fj.phi, fj.mass_jesTotaldown)
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotaldown, j0.eta, j0.phi, j0.mass_jesTotaldown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotaldown, j1.eta, j1.phi, j1.mass_jesTotaldown)
-        elif s == "jerup":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerup, fj.eta, fj.phi, fj.mass_jerup)
-            j0_p4.SetPtEtaPhiM(j0.pt_jerup, j0.eta, j0.phi, j0.mass_jerup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerup, j1.eta, j1.phi, j1.mass_jerup)
-        elif s == "jerdown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerdown, fj.eta, fj.phi, fj.mass_jerdown)
-            j0_p4.SetPtEtaPhiM(j0.pt_jerdown, j0.eta, j0.phi, j0.mass_jerdown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerdown, j1.eta, j1.phi, j1.mass_jerdown)
-        elif s == None:
-            fj_p4.SetPtEtaPhiM(fj.pt, fj.eta, fj.phi, fj.mass)
-            j0_p4.SetPtEtaPhiM(j0.pt, j0.eta, j0.phi, j0.mass)
-            j1_p4.SetPtEtaPhiM(j1.pt, j1.eta, j1.phi, j1.mass)
-        p4 = fj_p4 + j0_p4 + j1_p4
-    #print(p4, p4.M())
+        p4 = scenario_p4(fj, s) + scenario_p4(j0, s) + scenario_p4(j1, s)
     return p4
 
 def top3j1fj(fj, j0, j1, j2, s=None, dr0=None, dr1=None, dr2=None):
-    p4 = ROOT.TLorentzVector()
+    # jets inside the fatjet (dR<0.8) are not added again: top = fatjet + jets outside the fatjet
     if dr0==None:
         dr0 = deltaR(fj,j0)<0.8
         dr1 = deltaR(fj,j1)<0.8
         dr2 = deltaR(fj,j2)<0.8
     if dr0*dr1*dr2:
-        if s == "nominal":
-            p4.SetPtEtaPhiM(fj.pt_nominal, fj.eta, fj.phi, fj.mass_nominal)
-        elif s == "jesTotalup":
-            p4.SetPtEtaPhiM(fj.pt_jesTotalup, fj.eta, fj.phi, fj.mass_jesTotalup)
-        elif s == "jesTotaldown":
-            p4.SetPtEtaPhiM(fj.pt_jesTotaldown, fj.eta, fj.phi, fj.mass_jesTotaldown)
-        elif s == "jerup":
-            p4.SetPtEtaPhiM(fj.pt_jerup, fj.eta, fj.phi, fj.mass_jerup)
-        elif s == "jerdown":
-            p4.SetPtEtaPhiM(fj.pt_jerdown, fj.eta, fj.phi, fj.mass_jerdown)
-        elif s == None:
-            p4.SetPtEtaPhiM(fj.pt, fj.eta, fj.phi, fj.mass)
+        p4 = scenario_p4(fj, s)
     elif dr0*dr1:
-        fj_p4, j2_p4 = ROOT.TLorentzVector(), ROOT.TLorentzVector()
-        if s == "nominal":
-            fj_p4.SetPtEtaPhiM(fj.pt_nominal, fj.eta, fj.phi, fj.mass_nominal)
-            j2_p4.SetPtEtaPhiM(j2.pt_nominal, j2.eta, j2.phi, j2.mass_nominal)
-        elif s == "jesTotalup":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotalup, fj.eta, fj.phi, fj.mass_jesTotalup)
-            j2_p4.SetPtEtaPhiM(j2.pt_jesTotalup, j2.eta, j2.phi, j2.mass_jesTotalup)
-        elif s == "jesTotaldown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotaldown, fj.eta, fj.phi, fj.mass_jesTotaldown)
-            j2_p4.SetPtEtaPhiM(j2.pt_jesTotaldown, j2.eta, j2.phi, j2.mass_jesTotaldown)
-        elif s == "jerUp":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerup, fj.eta, fj.phi, fj.mass_jerup)
-            j2_p4.SetPtEtaPhiM(j2.pt_jerup, j2.eta, j2.phi, j2.mass_jerup)
-        elif s == "jerdown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerdown, fj.eta, fj.phi, fj.mass_jerdown)
-            j2_p4.SetPtEtaPhiM(j2.pt_jerdown, j2.eta, j2.phi, j2.mass_jerdown)
-        elif s == None:
-            fj_p4.SetPtEtaPhiM(fj.pt, fj.eta, fj.phi, fj.mass)
-            j2_p4.SetPtEtaPhiM(j2.pt, j2.eta, j2.phi, j2.mass)
-        p4 = fj_p4 + j2_p4
+        p4 = scenario_p4(fj, s) + scenario_p4(j2, s)
     elif dr0*dr2:
-        fj_p4, j1_p4 = ROOT.TLorentzVector(), ROOT.TLorentzVector()
-        if s == "nominal":
-            fj_p4.SetPtEtaPhiM(fj.pt_nominal, fj.eta, fj.phi, fj.mass_nominal)
-            j1_p4.SetPtEtaPhiM(j1.pt_nominal, j1.eta, j1.phi, j1.mass_nominal)
-        elif s == "jesTotalup":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotalup, fj.eta, fj.phi, fj.mass_jesTotalup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotalup, j1.eta, j1.phi, j1.mass_jesTotalup)
-        elif s == "jesTotaldown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotaldown, fj.eta, fj.phi, fj.mass_jesTotaldown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotaldown, j1.eta, j1.phi, j1.mass_jesTotaldown)
-        elif s == "jerUp":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerup, fj.eta, fj.phi, fj.mass_jerup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerup, j1.eta, j1.phi, j1.mass_jerup)
-        elif s == "jerdown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerdown, fj.eta, fj.phi, fj.mass_jerdown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerdown, j1.eta, j1.phi, j1.mass_jerdown)
-        elif s == None:
-            fj_p4.SetPtEtaPhiM(fj.pt, fj.eta, fj.phi, fj.mass)
-            j1_p4.SetPtEtaPhiM(j1.pt, j1.eta, j1.phi, j1.mass)
-        p4 = fj_p4 + j1_p4
+        p4 = scenario_p4(fj, s) + scenario_p4(j1, s)
     elif dr1*dr2:
-        fj_p4, j0_p4 = ROOT.TLorentzVector(), ROOT.TLorentzVector()
-        if s == "nominal":
-            fj_p4.SetPtEtaPhiM(fj.pt_nominal, fj.eta, fj.phi, fj.mass_nominal)
-            j0_p4.SetPtEtaPhiM(j0.pt_nominal, j0.eta, j0.phi, j0.mass_nominal)
-        elif s == "jesTotalup":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotalup, fj.eta, fj.phi, fj.mass_jesTotalup)
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotalup, j0.eta, j0.phi, j0.mass_jesTotalup)
-        elif s == "jesTotaldown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotaldown, fj.eta, fj.phi, fj.mass_jesTotaldown)
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotaldown, j0.eta, j0.phi, j0.mass_jesTotaldown)
-        elif s == "jerUp":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerup, fj.eta, fj.phi, fj.mass_jerup)
-            j0_p4.SetPtEtaPhiM(j0.pt_jerup, j0.eta, j0.phi, j0.mass_jerup)
-        elif s == "jerdown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerdown, fj.eta, fj.phi, fj.mass_jerdown)
-            j0_p4.SetPtEtaPhiM(j0.pt_jerdown, j0.eta, j0.phi, j0.mass_jerdown)
-        elif s == None:
-            fj_p4.SetPtEtaPhiM(fj.pt, fj.eta, fj.phi, fj.mass)
-            j0_p4.SetPtEtaPhiM(j0.pt, j0.eta, j0.phi, j0.mass)
-        p4 = fj_p4 + j0_p4
+        p4 = scenario_p4(fj, s) + scenario_p4(j0, s)
     elif dr0:
-        fj_p4, j1_p4, j2_p4 = ROOT.TLorentzVector(), ROOT.TLorentzVector(), ROOT.TLorentzVector()
-        if s == "nominal":
-            fj_p4.SetPtEtaPhiM(fj.pt_nominal, fj.eta, fj.phi, fj.mass_nominal)
-            j1_p4.SetPtEtaPhiM(j1.pt_nominal, j1.eta, j1.phi, j1.mass_nominal)
-            j2_p4.SetPtEtaPhiM(j2.pt_nominal, j2.eta, j2.phi, j2.mass_nominal)
-        elif s == "jesTotalup":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotalup, fj.eta, fj.phi, fj.mass_jesTotalup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotalup, j1.eta, j1.phi, j1.mass_jesTotalup)
-            j2_p4.SetPtEtaPhiM(j2.pt_jesTotalup, j2.eta, j2.phi, j2.mass_jesTotalup)
-        elif s == "jesTotaldown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotaldown, fj.eta, fj.phi, fj.mass_jesTotaldown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotaldown, j1.eta, j1.phi, j1.mass_jesTotaldown)
-            j2_p4.SetPtEtaPhiM(j2.pt_jesTotaldown, j2.eta, j2.phi, j2.mass_jesTotaldown)
-        elif s == "jerUp":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerup, fj.eta, fj.phi, fj.mass_jerup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerup, j1.eta, j1.phi, j1.mass_jerup)
-            j2_p4.SetPtEtaPhiM(j2.pt_jerup, j2.eta, j2.phi, j2.mass_jerup)
-        elif s == "jerdown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerdown, fj.eta, fj.phi, fj.mass_jerdown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerdown, j1.eta, j1.phi, j1.mass_jerdown)
-            j2_p4.SetPtEtaPhiM(j2.pt_jerdown, j2.eta, j2.phi, j2.mass_jerdown)
-        elif s == None:
-            fj_p4.SetPtEtaPhiM(fj.pt, fj.eta, fj.phi, fj.mass)
-            j1_p4.SetPtEtaPhiM(j1.pt, j1.eta, j1.phi, j1.mass)
-            j2_p4.SetPtEtaPhiM(j2.pt, j2.eta, j2.phi, j2.mass)
-        p4 = fj_p4 + j1_p4 + j2_p4
+        p4 = scenario_p4(fj, s) + scenario_p4(j1, s) + scenario_p4(j2, s)
     elif dr1:
-        fj_p4, j0_p4, j2_p4 = ROOT.TLorentzVector(), ROOT.TLorentzVector(), ROOT.TLorentzVector()
-        if s == "nominal":
-            fj_p4.SetPtEtaPhiM(fj.pt_nominal, fj.eta, fj.phi, fj.mass_nominal)
-            j0_p4.SetPtEtaPhiM(j0.pt_nominal, j0.eta, j0.phi, j0.mass_nominal)
-            j2_p4.SetPtEtaPhiM(j2.pt_nominal, j2.eta, j2.phi, j2.mass_nominal)
-        elif s == "jesTotalup":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotalup, fj.eta, fj.phi, fj.mass_jesTotalup)
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotalup, j0.eta, j0.phi, j0.mass_jesTotalup)
-            j2_p4.SetPtEtaPhiM(j2.pt_jesTotalup, j2.eta, j2.phi, j2.mass_jesTotalup)
-        elif s == "jesTotaldown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotaldown, fj.eta, fj.phi, fj.mass_jesTotaldown)
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotaldown, j0.eta, j0.phi, j0.mass_jesTotaldown)
-            j2_p4.SetPtEtaPhiM(j2.pt_jesTotaldown, j2.eta, j2.phi, j2.mass_jesTotaldown)
-        elif s == "jerUp":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerup, fj.eta, fj.phi, fj.mass_jerup)
-            j0_p4.SetPtEtaPhiM(j0.pt_jerup, j0.eta, j0.phi, j0.mass_jerup)
-            j2_p4.SetPtEtaPhiM(j2.pt_jerup, j2.eta, j2.phi, j2.mass_jerup)
-        elif s == "jerdown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerdown, fj.eta, fj.phi, fj.mass_jerdown)
-            j0_p4.SetPtEtaPhiM(j0.pt_jerdown, j0.eta, j0.phi, j0.mass_jerdown)
-            j2_p4.SetPtEtaPhiM(j2.pt_jerdown, j2.eta, j2.phi, j2.mass_jerdown)
-        elif s == None:
-            fj_p4.SetPtEtaPhiM(fj.pt, fj.eta, fj.phi, fj.mass)
-            j0_p4.SetPtEtaPhiM(j0.pt, j0.eta, j0.phi, j0.mass)
-            j2_p4.SetPtEtaPhiM(j2.pt, j2.eta, j2.phi, j2.mass)
-        p4 = fj_p4 + j0_p4 + j2_p4
+        p4 = scenario_p4(fj, s) + scenario_p4(j0, s) + scenario_p4(j2, s)
     elif dr2:
-        fj_p4, j0_p4, j1_p4 = ROOT.TLorentzVector(), ROOT.TLorentzVector(), ROOT.TLorentzVector()
-        if s == "nominal":
-            fj_p4.SetPtEtaPhiM(fj.pt_nominal, fj.eta, fj.phi, fj.mass_nominal)
-            j0_p4.SetPtEtaPhiM(j0.pt_nominal, j0.eta, j0.phi, j0.mass_nominal)
-            j1_p4.SetPtEtaPhiM(j1.pt_nominal, j1.eta, j1.phi, j1.mass_nominal)
-        elif s == "jesTotalup":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotalup, fj.eta, fj.phi, fj.mass_jesTotalup)
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotalup, j0.eta, j0.phi, j0.mass_jesTotalup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotalup, j1.eta, j1.phi, j1.mass_jesTotalup)
-        elif s == "jesTotaldown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jesTotaldown, fj.eta, fj.phi, fj.mass_jesTotaldown)
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotaldown, j0.eta, j0.phi, j0.mass_jesTotaldown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotaldown, j1.eta, j1.phi, j1.mass_jesTotaldown)
-        elif s == "jerUp":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerup, fj.eta, fj.phi, fj.mass_jerup)
-            j0_p4.SetPtEtaPhiM(j0.pt_jerup, j0.eta, j0.phi, j0.mass_jerup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerup, j1.eta, j1.phi, j1.mass_jerup)
-        elif s == "jerdown":
-            fj_p4.SetPtEtaPhiM(fj.pt_jerdown, fj.eta, fj.phi, fj.mass_jerdown)
-            j0_p4.SetPtEtaPhiM(j0.pt_jerdown, j0.eta, j0.phi, j0.mass_jerdown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerdown, j1.eta, j1.phi, j1.mass_jerdown)
-        elif s == None:
-            fj_p4.SetPtEtaPhiM(fj.pt, fj.eta, fj.phi, fj.mass)
-            j0_p4.SetPtEtaPhiM(j0.pt, j0.eta, j0.phi, j0.mass)
-            j1_p4.SetPtEtaPhiM(j1.pt, j1.eta, j1.phi, j1.mass)
-        p4 = fj_p4 + j0_p4 + j1_p4
+        p4 = scenario_p4(fj, s) + scenario_p4(j0, s) + scenario_p4(j1, s)
     else:
-        j0_p4, j1_p4, j2_p4 = ROOT.TLorentzVector(), ROOT.TLorentzVector(), ROOT.TLorentzVector()
-        if s == "nominal":
-            j0_p4.SetPtEtaPhiM(j0.pt_nominal, j0.eta, j0.phi, j0.mass_nominal)
-            j1_p4.SetPtEtaPhiM(j1.pt_nominal, j1.eta, j1.phi, j1.mass_nominal)
-            j2_p4.SetPtEtaPhiM(j2.pt_nominal, j2.eta, j2.phi, j2.mass_nominal)
-        if s == "jesTotalup":
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotalup, j0.eta, j0.phi, j0.mass_jesTotalup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotalup, j1.eta, j1.phi, j1.mass_jesTotalup)
-            j2_p4.SetPtEtaPhiM(j2.pt_jesTotalup, j2.eta, j2.phi, j2.mass_jesTotalup)
-        if s == "jesTotaldown":
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotaldown, j0.eta, j0.phi, j0.mass_jesTotaldown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotaldown, j1.eta, j1.phi, j1.mass_jesTotaldown)
-            j2_p4.SetPtEtaPhiM(j2.pt_jesTotaldown, j2.eta, j2.phi, j2.mass_jesTotaldown)
-        if s == "jerUp":
-            j0_p4.SetPtEtaPhiM(j0.pt_jerup, j0.eta, j0.phi, j0.mass_jerup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerup, j1.eta, j1.phi, j1.mass_jerup)
-            j2_p4.SetPtEtaPhiM(j2.pt_jerup, j2.eta, j2.phi, j2.mass_jerup)
-        if s == "jerdown":
-            j0_p4.SetPtEtaPhiM(j0.pt_jerdown, j0.eta, j0.phi, j0.mass_jerdown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerdown, j1.eta, j1.phi, j1.mass_jerdown)
-            j2_p4.SetPtEtaPhiM(j2.pt_jerdown, j2.eta, j2.phi, j2.mass_jerdown)
-        if s == None:
-            j0_p4.SetPtEtaPhiM(j0.pt, j0.eta, j0.phi, j0.mass)
-            j1_p4.SetPtEtaPhiM(j1.pt, j1.eta, j1.phi, j1.mass)
-            j2_p4.SetPtEtaPhiM(j2.pt, j2.eta, j2.phi, j2.mass)
-        p4 = j0_p4 + j1_p4 + j2_p4
+        p4 = scenario_p4(j0, s) + scenario_p4(j1, s) + scenario_p4(j2, s)
         # p4 = (j0.p4()+j1.p4()+j2.p4()) #None      ###<--------------------to exclude 3j1fj not overlapping
-    #print(p4, p4.M())
     return p4
 
 

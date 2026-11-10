@@ -28,31 +28,7 @@ def factorial(n):
         return n*factorial(n-1)
 
 def lowpt_top(j0, j1, j2, s):
-    # top_p4 = ROOT.TLorentzVector()
-    j0_p4 = ROOT.TLorentzVector()
-    j1_p4 = ROOT.TLorentzVector()
-    j2_p4 = ROOT.TLorentzVector()
-    if s == "nominal":
-        j0_p4.SetPtEtaPhiM(j0.pt_nominal, j0.eta, j0.phi, j0.mass_nominal)
-        j1_p4.SetPtEtaPhiM(j1.pt_nominal, j1.eta, j1.phi, j1.mass_nominal)
-        j2_p4.SetPtEtaPhiM(j2.pt_nominal, j2.eta, j2.phi, j2.mass_nominal)
-    elif s == "jesTotalup":
-        j0_p4.SetPtEtaPhiM(j0.pt_jesTotalup, j0.eta, j0.phi, j0.mass_jesTotalup)
-        j1_p4.SetPtEtaPhiM(j1.pt_jesTotalup, j1.eta, j1.phi, j1.mass_jesTotalup)
-        j2_p4.SetPtEtaPhiM(j2.pt_jesTotalup, j2.eta, j2.phi, j2.mass_jesTotalup) 
-    elif s == "jesTotaldown":
-        j0_p4.SetPtEtaPhiM(j0.pt_jesTotaldown, j0.eta, j0.phi, j0.mass_jesTotaldown)
-        j1_p4.SetPtEtaPhiM(j1.pt_jesTotaldown, j1.eta, j1.phi, j1.mass_jesTotaldown)
-        j2_p4.SetPtEtaPhiM(j2.pt_jesTotaldown, j2.eta, j2.phi, j2.mass_jesTotaldown)
-    elif s == "jerup":
-        j0_p4.SetPtEtaPhiM(j0.pt_jerup, j0.eta, j0.phi, j0.mass_jerup)
-        j1_p4.SetPtEtaPhiM(j1.pt_jerup, j1.eta, j1.phi, j1.mass_jerup)
-        j2_p4.SetPtEtaPhiM(j2.pt_jerup, j2.eta, j2.phi, j2.mass_jerup)
-    elif s == "jerdown":
-        j0_p4.SetPtEtaPhiM(j0.pt_jerdown, j0.eta, j0.phi, j0.mass_jerdown)
-        j1_p4.SetPtEtaPhiM(j1.pt_jerdown, j1.eta, j1.phi, j1.mass_jerdown)
-        j2_p4.SetPtEtaPhiM(j2.pt_jerdown, j2.eta, j2.phi, j2.mass_jerdown)
-    top_p4 = j0_p4+j1_p4+j2_p4
+    top_p4 = scenario_p4(j0, s) + scenario_p4(j1, s) + scenario_p4(j2, s) # scenario_p4 in tools.py
     return top_p4
 
 def highpt_top(j0, j1, j2, fj, s):
