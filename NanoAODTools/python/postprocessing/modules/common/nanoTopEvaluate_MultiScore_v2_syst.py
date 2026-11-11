@@ -12,83 +12,21 @@ import os
 
 ###### UTILITIES ######
 def fill_mass(mass_dnn, idx_top, j0, j1, j2, fj, scenario):
+    # scenario_p4, top2j1fj, top3j1fj in tools.py (pt_<scenario>/mass_<scenario> of the jets)
     if fj == None:#3j0fj
-        j0_p4 = ROOT.TLorentzVector()
-        j1_p4 = ROOT.TLorentzVector()
-        j2_p4 = ROOT.TLorentzVector()
-        if scenario == "nominal":
-            j0_p4.SetPtEtaPhiM(j0.pt_nominal, j0.eta, j0.phi, j0.mass_nominal)
-            j1_p4.SetPtEtaPhiM(j1.pt_nominal, j1.eta, j1.phi, j1.mass_nominal)
-            j2_p4.SetPtEtaPhiM(j2.pt_nominal, j2.eta, j2.phi, j2.mass_nominal)
-        elif scenario == "jesTotalup":
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotalup, j0.eta, j0.phi, j0.mass_jesTotalup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotalup, j1.eta, j1.phi, j1.mass_jesTotalup)
-            j2_p4.SetPtEtaPhiM(j2.pt_jesTotalup, j2.eta, j2.phi, j2.mass_jesTotalup) 
-        elif scenario == "jesTotaldown":
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotaldown, j0.eta, j0.phi, j0.mass_jesTotaldown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotaldown, j1.eta, j1.phi, j1.mass_jesTotaldown)
-            j2_p4.SetPtEtaPhiM(j2.pt_jesTotaldown, j2.eta, j2.phi, j2.mass_jesTotaldown)
-        elif scenario == "jerup":
-            j0_p4.SetPtEtaPhiM(j0.pt_jerup, j0.eta, j0.phi, j0.mass_jerup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerup, j1.eta, j1.phi, j1.mass_jerup)
-            j2_p4.SetPtEtaPhiM(j2.pt_jerup, j2.eta, j2.phi, j2.mass_jerup)
-        elif scenario == "jerdown":
-            j0_p4.SetPtEtaPhiM(j0.pt_jerdown, j0.eta, j0.phi, j0.mass_jerdown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerdown, j1.eta, j1.phi, j1.mass_jerdown)
-            j2_p4.SetPtEtaPhiM(j2.pt_jerdown, j2.eta, j2.phi, j2.mass_jerdown)
-        top_p4 = j0_p4+j1_p4+j2_p4
+        top_p4 = scenario_p4(j0, scenario) + scenario_p4(j1, scenario) + scenario_p4(j2, scenario)
         mass_dnn[idx_top, 0] = top_p4.M()
         mass_dnn[idx_top, 1] = top_p4.M()
         mass_dnn[idx_top, 2] = top_p4.Pt()
 
     elif j2 == None:#2j1fj
-        j0_p4 = ROOT.TLorentzVector()
-        j1_p4 = ROOT.TLorentzVector()
-        if scenario == "nominal":
-            j0_p4.SetPtEtaPhiM(j0.pt_nominal, j0.eta, j0.phi, j0.mass_nominal)
-            j1_p4.SetPtEtaPhiM(j1.pt_nominal, j1.eta, j1.phi, j1.mass_nominal)
-        elif scenario == "jesTotalup":
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotalup, j0.eta, j0.phi, j0.mass_jesTotalup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotalup, j1.eta, j1.phi, j1.mass_jesTotalup)
-        elif scenario == "jesTotaldown":
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotaldown, j0.eta, j0.phi, j0.mass_jesTotaldown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotaldown, j1.eta, j1.phi, j1.mass_jesTotaldown)
-        elif scenario == "jerup":
-            j0_p4.SetPtEtaPhiM(j0.pt_jerup, j0.eta, j0.phi, j0.mass_jerup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerup, j1.eta, j1.phi, j1.mass_jerup)
-        elif scenario == "jerdown":
-            j0_p4.SetPtEtaPhiM(j0.pt_jerdown, j0.eta, j0.phi, j0.mass_jerdown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerdown, j1.eta, j1.phi, j1.mass_jerdown)
-        top_p4 = j0_p4+j1_p4
+        top_p4 = scenario_p4(j0, scenario) + scenario_p4(j1, scenario)
         mass_dnn[idx_top, 0] = top_p4.M()
         top                  = top2j1fj(fj, j0, j1, scenario)
         mass_dnn[idx_top, 1] = top.M()
         mass_dnn[idx_top, 2] = top.Pt()
     else: #3j1fj
-        j0_p4 = ROOT.TLorentzVector()
-        j1_p4 = ROOT.TLorentzVector()
-        j2_p4 = ROOT.TLorentzVector()
-        if scenario == "nominal":
-            j0_p4.SetPtEtaPhiM(j0.pt_nominal, j0.eta, j0.phi, j0.mass_nominal)
-            j1_p4.SetPtEtaPhiM(j1.pt_nominal, j1.eta, j1.phi, j1.mass_nominal)
-            j2_p4.SetPtEtaPhiM(j2.pt_nominal, j2.eta, j2.phi, j2.mass_nominal)
-        elif scenario == "jesTotalup":
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotalup, j0.eta, j0.phi, j0.mass_jesTotalup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotalup, j1.eta, j1.phi, j1.mass_jesTotalup)
-            j2_p4.SetPtEtaPhiM(j2.pt_jesTotalup, j2.eta, j2.phi, j2.mass_jesTotalup) 
-        elif scenario == "jesTotaldown":
-            j0_p4.SetPtEtaPhiM(j0.pt_jesTotaldown, j0.eta, j0.phi, j0.mass_jesTotaldown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jesTotaldown, j1.eta, j1.phi, j1.mass_jesTotaldown)
-            j2_p4.SetPtEtaPhiM(j2.pt_jesTotaldown, j2.eta, j2.phi, j2.mass_jesTotaldown)
-        elif scenario == "jerup":
-            j0_p4.SetPtEtaPhiM(j0.pt_jerup, j0.eta, j0.phi, j0.mass_jerup)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerup, j1.eta, j1.phi, j1.mass_jerup)
-            j2_p4.SetPtEtaPhiM(j2.pt_jerup, j2.eta, j2.phi, j2.mass_jerup)
-        elif scenario == "jerdown":
-            j0_p4.SetPtEtaPhiM(j0.pt_jerdown, j0.eta, j0.phi, j0.mass_jerdown)
-            j1_p4.SetPtEtaPhiM(j1.pt_jerdown, j1.eta, j1.phi, j1.mass_jerdown)
-            j2_p4.SetPtEtaPhiM(j2.pt_jerdown, j2.eta, j2.phi, j2.mass_jerdown)
-        top_p4 = j0_p4+j1_p4+j2_p4
+        top_p4 = scenario_p4(j0, scenario) + scenario_p4(j1, scenario) + scenario_p4(j2, scenario)
         mass_dnn[idx_top, 0] = top_p4.M()
         top                  = top3j1fj(fj, j0, j1, j2, scenario)
         mass_dnn[idx_top, 1] = top.M()
@@ -178,15 +116,20 @@ def fill_jets(year, jets_dnn, j0, j1, j2, sumjet, fj_phi, fj_eta, idx_top, scena
 
 
 class nanoTopevaluate_MultiScore(Module):
-    def __init__(self, modelMix_path, modelRes_path, isMC=1, year=2018):
+    def __init__(self, modelMix_path, modelRes_path, isMC=1, year=2018, scenarios=None):
+        # scenarios (MC): list of JES/JER scenarios of the TopMixed/TopResolved scores,
+        #                 e.g. top_scenarios(eraTag) from CMSJMECalculatorsHelper; None -> old default list
         self.modelMix_path = modelMix_path
         self.modelRes_path = modelRes_path
         self.modelMix      = tf.keras.models.load_model(modelMix_path, compile=False)
         self.modelRes      = tf.keras.models.load_model(modelRes_path, compile=False)
         self.isMC = isMC
         self.year = year
-        if isMC : self.scenarios = ["nominal", "jesTotalup", "jesTotaldown", "jerup", "jerdown"]
+        if isMC:
+            if scenarios is None: self.scenarios = ["nominal", "jesTotalup", "jesTotaldown", "jerup", "jerdown"]
+            else:                 self.scenarios = list(scenarios)
         else: self.scenarios = ["nominal"]
+        print("nanoTopevaluate_MultiScore scenarios:", self.scenarios)
         pass
  
 
@@ -273,8 +216,8 @@ class nanoTopevaluate_MultiScore(Module):
                 scores_         = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy().flatten().tolist()
             elif self.year in [2024]:
                 scores_True     = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy()[:,1].flatten()
-                scores_False    = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy()[:,0].flatten()
-                scores_QCD      = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy()[:,2].flatten()
+                # scores_False    = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy()[:,0].flatten() # not used (each line is a full DNN evaluation)
+                # scores_QCD      = self.modelMix({"fatjet": fj_dnn_concatenated, "jet": jets_dnn_concatenated, "top": mass_dnn_concatenated}).numpy()[:,2].flatten() # not used (each line is a full DNN evaluation)
                 scores_         = scores_True.tolist() # True/(True+QCD)
             
             for i, s in enumerate(self.scenarios):
@@ -304,8 +247,8 @@ class nanoTopevaluate_MultiScore(Module):
                 scores_         = self.modelRes({"jet0": jets_dnn_concatenated[:,0,:-2], "jet1": jets_dnn_concatenated[:,1,:-2], "jet2": jets_dnn_concatenated[:,2,:-2]}).numpy().flatten().tolist()
             elif self.year in [2024]:
                 scores_True     = self.modelRes({"jet": jets_dnn_concatenated}).numpy()[:,1].flatten()
-                scores_False    = self.modelRes({"jet": jets_dnn_concatenated}).numpy()[:,0].flatten()
-                scores_QCD      = self.modelRes({"jet": jets_dnn_concatenated}).numpy()[:,2].flatten()
+                # scores_False    = self.modelRes({"jet": jets_dnn_concatenated}).numpy()[:,0].flatten() # not used (each line is a full DNN evaluation)
+                # scores_QCD      = self.modelRes({"jet": jets_dnn_concatenated}).numpy()[:,2].flatten() # not used (each line is a full DNN evaluation)
                 scores_         = scores_True.tolist() # True/(True+QCD)
 
             for i, s in enumerate(self.scenarios):

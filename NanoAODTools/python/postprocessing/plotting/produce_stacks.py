@@ -224,7 +224,13 @@ for dat in datasets:
 
 ### rebinning for MT ###
 MT_T_xbins          = array.array('d', [500, 600, 700, 800, 1000, 1400, 2000])
-PuppiMET_pt_xbins   = array.array('d', [250, 300, 350, 400, 450, 500, 600, 850])
+PuppiMET_pt_xbins   = array.array('d', [200, 250, 300, 350, 400, 450, 500, 600, 850])
+
+def MET_xbins(histo):
+    # edges of PuppiMET_pt_xbins inside the x axis of histo: the MET histograms start at 200 GeV since the MET>200 regions
+    # (variables.py, Nov 2026), at 250 GeV in the older productions, where the 200 edge would make the Rebin fail
+    xmin = histo.GetXaxis().GetXmin()
+    return array.array('d', [x for x in PuppiMET_pt_xbins if x >= xmin])
 
 
 for v in vars:
@@ -271,7 +277,7 @@ for v in vars:
                 tmp                             = copy.deepcopy(tmp_)
                 tmp.SetName(histo_name)
             elif v._name == "PuppiMET_T1_pt_nominal":
-                tmp_                            = tmp.Rebin(len(PuppiMET_pt_xbins)-1, histo_name+"_", PuppiMET_pt_xbins)
+                tmp_                            = tmp.Rebin(len(MET_xbins(tmp))-1, histo_name+"_", MET_xbins(tmp))
                 tmp                             = copy.deepcopy(tmp_)
                 tmp.SetName(histo_name)
             if len(samples[s.label][s.label]["ntot"]):
@@ -302,7 +308,7 @@ for v in vars:
                 tmp                         = copy.deepcopy(tmp_)
                 tmp.SetName(histo_name)
             elif v._name == "PuppiMET_T1_pt_nominal":
-                tmp_                        = tmp.Rebin(len(PuppiMET_pt_xbins)-1, histo_name+"_", PuppiMET_pt_xbins)
+                tmp_                        = tmp.Rebin(len(MET_xbins(tmp))-1, histo_name+"_", MET_xbins(tmp))
                 tmp                         = copy.deepcopy(tmp_)
                 tmp.SetName(histo_name)
             if len(samples[s.label][s.label]["ntot"]):
@@ -329,7 +335,7 @@ for v in vars:
                     tmp                     = copy.deepcopy(tmp_)
                     tmp.SetName(histo_name)
                 elif v._name == "PuppiMET_T1_pt_nominal":
-                    tmp_                    = tmp.Rebin(len(PuppiMET_pt_xbins)-1, histo_name+"_", PuppiMET_pt_xbins)
+                    tmp_                    = tmp.Rebin(len(MET_xbins(tmp))-1, histo_name+"_", MET_xbins(tmp))
                     tmp                     = copy.deepcopy(tmp_)
                     tmp.SetName(histo_name)
                 if len(samples[s.label][s.label]["ntot"]):
@@ -394,7 +400,7 @@ for v in vars:
                         tmp                         = copy.deepcopy(tmp_)
                         tmp.SetName(histo_name)
                     elif v._name == "PuppiMET_T1_pt_nominal":
-                        tmp_                        = tmp.Rebin(len(PuppiMET_pt_xbins)-1, histo_name+"_", PuppiMET_pt_xbins)
+                        tmp_                        = tmp.Rebin(len(MET_xbins(tmp))-1, histo_name+"_", MET_xbins(tmp))
                         tmp                         = copy.deepcopy(tmp_)
                         tmp.SetName(histo_name)
                     if histo_data is None:

@@ -1,38 +1,6 @@
 import math
 import numpy as np
-class variable(object):
-    def __init__(self, name, title, taglio=None, nbins=None, xmin=None, xmax=None, xarray=None, MConly = False, noUnOvFlowbin = False):
-        self._name = name
-        self._title = title
-        self._taglio = taglio
-        self._nbins = nbins
-        self._xmin = xmin
-        self._xmax = xmax
-        self._xarray = xarray
-        self._MConly = MConly
-        self._noUnOvFlowbin = noUnOvFlowbin
-    def __str__(self):
-        return  '\"'+str(self._name)+'\",\"'+str(self._title)+'\",\"'+str(self._taglio)+'\",'+str(self._nbins)+','+str(self._xmin)+','+str(self._xmax)
-
-class variable2D(object):
-    def __init__(self, name, xname, yname, xtitle, ytitle, taglio=None, nxbins=None, xmin=None, xmax=None, xarray=None, 
-                    nybins=None, ymin=None, ymax=None, yarray=None):
-        self._name = name
-        self._xname = xname
-        self._yname = yname
-        self._xtitle = xtitle
-        self._ytitle = ytitle
-        self._taglio = taglio
-        self._nxbins = nxbins
-        self._xmin = xmin
-        self._xmax = xmax
-        self._xarray = xarray
-        self._nybins = nybins
-        self._ymin = ymin
-        self._ymax = ymax
-        self._yarray = yarray
-    def __str__(self):
-        return  '\"'+str(self._name)+'\",\"'+str(self._xtitle)+'\",\"'+str(self._ytitle)+'\",\"'+str(self._taglio)+'\",'+str(self._nxbins)+','+str(self._xmin)+','+str(self._xmax)+','+str(self._nybins)+','+str(self._ymin)+','+str(self._ymax)
+from PhysicsTools.NanoAODTools.postprocessing.postselection.utils.variable import variable, variable2D    # classes in postselection/utils/variable.py
 
 
 ### Definition of requeriments for plots (cut), variables and regions
@@ -47,9 +15,11 @@ vars.append(variable(name = "TopResolved_TopScore_nominal",         title= "Top 
 vars.append(variable(name = "TopMixed_TopScore_nominal",            title= "Top Mixed Score",               nbins = 40, xmin = 0, xmax=1, noUnOvFlowbin = True))
 vars.append(variable(name = "TopMerged_TopScore_nominal",           title= "Top Merged Score",              nbins = 40, xmin = 0, xmax=1, noUnOvFlowbin = True))
 
-vars.append(variable(name = "BestTopResolved_score",                title= "Best Top Resolved Score",       nbins = 40, xmin = 0, xmax=1, noUnOvFlowbin = True))
-vars.append(variable(name = "BestTopMixed_score",                   title= "Best Top Mixed Score",          nbins = 40, xmin = 0, xmax=1, noUnOvFlowbin = True))
-vars.append(variable(name = "BestTopMerged_score",                  title= "Best Top Merged Score",         nbins = 40, xmin = 0, xmax=1, noUnOvFlowbin = True))
+# Fine binning (0.0001) to find the working points down to 1% mistag (draw_WorkingPoints.py): with 40 bins (0.025) the 1% of Mixed falls in the last bin.
+# 10000 bins is an exact refinement of the old 40 bins (Rebin(250) gives them back), used for the 10%/5% WPs in TopTagging_WorkingPoints.json
+vars.append(variable(name = "BestTopResolved_score",                title= "Best Top Resolved Score",       nbins = 10000, xmin = 0, xmax=1, noUnOvFlowbin = True))
+vars.append(variable(name = "BestTopMixed_score",                   title= "Best Top Mixed Score",          nbins = 10000, xmin = 0, xmax=1, noUnOvFlowbin = True))
+vars.append(variable(name = "BestTopMerged_score",                  title= "Best Top Merged Score",         nbins = 10000, xmin = 0, xmax=1, noUnOvFlowbin = True))
 
 
 ######## 2D variables for histos

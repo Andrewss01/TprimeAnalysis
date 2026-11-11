@@ -126,7 +126,11 @@ def preselection(df, year):
         df = df.Define("Jet_passJetIdTight",            "Jet_passJetIdTight(Jet_eta, Jet_jetId, Jet_neHEF, Jet_neEmEF)")\
                .Define("Jet_passJetIdTightLepVeto",     "Jet_passJetIdTightLepVeto(Jet_eta, Jet_passJetIdTight, Jet_muEF, Jet_chEmEF)")\
                .Redefine("Jet_jetId",                   "ROOT::VecOps::RVec<int>(Jet_passJetIdTight) * 2 + ROOT::VecOps::RVec<int>(Jet_passJetIdTightLepVeto) * 4") # https://twiki.cern.ch/twiki/bin/view/CMS/JetID13p6TeV
-    df = df.Define("GoodJet_idx",                       "GetGoodJet(Jet_pt_nominal, Jet_eta, Jet_jetId)") # richiesto jetId==6
+    # veto leptons, used only to clean the jets (same definitions as in postselection/postSelector.py)
+    df = df.Define("VetoElectron_idx",                  "VetoElectron_idx(Electron_pt, Electron_cutBased, Electron_eta, Electron_mvaIso_WP80)")\
+           .Define("VetoMuon_idx",                      "VetoMuon_idx(Muon_pt, Muon_eta, Muon_looseId, Muon_pfIsoId)")
+    # jets: jetId==6, pt>30, |eta|<2.4, and DeltaR>=0.4 from every veto electron and veto muon
+    df = df.Define("GoodJet_idx",                       "CleanGoodJets_fromVetoLeptons(GetGoodJet(Jet_pt_nominal, Jet_eta, Jet_jetId), Jet_eta, Jet_phi, VetoElectron_idx, Electron_eta, Electron_phi, VetoMuon_idx, Muon_eta, Muon_phi, 0.4)")
     df = df.Define("GoodFatJet_idx",                    "GetGoodFatJet(FatJet_pt_nominal, FatJet_eta, FatJet_jetId)") # richiesto jetId==6
     df = df.Filter("GoodJet_idx.size()>2 || GoodFatJet_idx.size()>0", "jet presel")
     df = df.Define("JetBTagScore",                      "GetJetBTagScore(GoodJet_idx, "+bTagAlg_dict[year]+")")
@@ -250,7 +254,7 @@ for d in datasets:
         print("Processing sample: ", s.label, " era: ", era, " b-tag discriminant: ", bTagAlg_dict[s.year])
 
         df              = ROOT.RDataFrame(tchains[s.label])
-        df              = df.Define("triggerSF",    f'GetTriggerSF(PuppiMET_pt, "{era}", "sf")')
+        df              = df.Define("triggerSF",    f'GetTriggerSF(PuppiMET_T1_pt_nominal, "{era}", "sf")')
         df              = defineWeights(df, sample_process, s.label, ntot_events[s.label])
         df              = preselection(df, s.year)
         df              = df.Define("w_nominal",    weights_expr)

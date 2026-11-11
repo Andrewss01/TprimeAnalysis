@@ -34,3 +34,4 @@ NanoAODTools/python/postprocessing/TriggerSF/condor/
 NanoAODTools/python/postprocessing/BTagEfficiency/condor/
 NanoAODTools/python/postprocessing/plotting/condor/
 NanoAODTools/python/postprocessing/config/config.yaml
+NanoAODTools/python/postprocessing/postselection/launch_parallel_lfavilla.sh
