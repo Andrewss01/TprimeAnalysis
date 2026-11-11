@@ -66,6 +66,9 @@ if submit:
 def write_crab_script(sample, file, modules, run_folder, calculate_systematics, year, debug):
     f = open(run_folder+"/crab_script.py", "w")
     f.write("#!/usr/bin/env python3\n")
+    f.write("import time\n")
+    f.write("t_start = time.time() # job timing: total (imports + setup + PostProcessor) and PostProcessor only\n")
+    f.write("print('START :', time.strftime('%Y-%m-%d %H:%M:%S'))\n")
     f.write("import os\n")
     f.write("from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import *\n")
     f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.JetVetoMaps_run3 import *\n")
@@ -125,7 +128,16 @@ def write_crab_script(sample, file, modules, run_folder, calculate_systematics, 
     else:
         f.write(f"p=PostProcessor('.', ['root://cms-xrd-global.cern.ch/{file}'], '', modules=[{modules}], provenance=True, haddFileName='tree.root', fwkJobReport=False, histFileName='hist.root', histDirName='plots', outputbranchsel='/afs/cern.ch/{workdir}/{inituser}/{username}/{name_main_folder}/NanoAODTools/scripts/keep_and_drop.txt'{extra_str})\n")#
 
+    f.write("t_run = time.time()\n")
     f.write("p.run()\n")
+    f.write("t_end = time.time()\n")
+    f.write("print('END   :', time.strftime('%Y-%m-%d %H:%M:%S'))\n")
+    f.write("def hms(seconds): # 360.6 -> '0h 06m 01s'\n")
+    f.write("    seconds = int(round(seconds))\n")
+    f.write("    return '%dh %02dm %02ds' % (seconds // 3600, (seconds % 3600) // 60, seconds % 60)\n")
+    f.write("print('TIME setup (imports, calculators, models) : %8.1f s = %s' % (t_run - t_start, hms(t_run - t_start)))\n")
+    f.write("print('TIME PostProcessor run                    : %8.1f s = %s' % (t_end - t_run,   hms(t_end - t_run)))\n")
+    f.write("print('TIME total crab_script                    : %8.1f s = %s' % (t_end - t_start, hms(t_end - t_start)))\n")
     f.write("print('DONE')\n")
     f.close()
 
