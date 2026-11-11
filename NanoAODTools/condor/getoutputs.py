@@ -149,7 +149,6 @@ for sample in samples:
         if not "Data" in sample.label:
             try:
                 rootfile = ROOT.TFile.Open(f)
-                out_strings.append(f)
                 runstree = rootfile.Get("Runs")
                 runstree.GetEntry(0)
                 geneventSumw = runstree.genEventSumw
@@ -157,6 +156,7 @@ for sample in samples:
                 tree.GetEntry(0)
                 eventweight = abs(tree.Generator_weight)
                 n = round(abs(geneventSumw/eventweight))
+                out_strings.append(f)
                 ntot.append(n)
             except:
                 print("Could not open file: ", f)

@@ -1,4 +1,5 @@
 import ROOT
+ROOT.TH1.AddDirectory(False)
 import os
 from PhysicsTools.NanoAODTools.postprocessing.samples.samples import *
 import yaml
@@ -52,7 +53,7 @@ if not os.path.exists(workspaceSubFolder):
     os.makedirs(workspaceSubFolder)
     print(f"Created workspace subfolder: {workspaceSubFolder}")
 
-lumi_unc_dict       = {"2022": 1.014, "2022EE": 1.014, "2023": 1.013, "2023postBPix": 1.013} # https://twiki.cern.ch/twiki/bin/viewauth/CMS/LumiRecommendationsRun3
+lumi_unc_dict       = {"2022": 1.014, "2022EE": 1.014, "2023": 1.013, "2023postBPix": 1.013, "2024": 1.016} # https://twiki.cern.ch/twiki/bin/viewauth/CMS/LumiRecommendationsRun3
 event_categories    = ["pt0to200","pt200to400","pt400to600","pt600to1000","pt0to400","pt400to1000"]
 uncertainties       = {
                         "lumi":         [lumi_unc_dict[era],"lnN"],
@@ -457,3 +458,4 @@ with open(f"{workspaceSubFolder}/fit_procedure.sh", 'w') as fit_script_file:
         fit_script_file.write(f"combineTool.py -M Impacts {impacts_opts}{exclude_opts} \\\n    -o impacts_{ev_cat}.json\n")
         for cat in categories_to_fit:
             fit_script_file.write(f"plotImpacts.py -i impacts_{ev_cat}.json -o impacts_{ev_cat}_SF_{cat} --POI SF_{cat} --summary\n")
+
