@@ -458,3 +458,4 @@ with open(f"{workspaceSubFolder}/fit_procedure.sh", 'w') as fit_script_file:
         fit_script_file.write(f"combineTool.py -M Impacts {impacts_opts}{exclude_opts} \\\n    -o impacts_{ev_cat}.json\n")
         for cat in categories_to_fit:
             fit_script_file.write(f"plotImpacts.py -i impacts_{ev_cat}.json -o impacts_{ev_cat}_SF_{cat} --POI SF_{cat} --summary\n")
+
