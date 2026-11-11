@@ -136,10 +136,12 @@ jertag = {
         }
     }
 }
-def configcreate(isMC=True, year=2022, EE=False, runPeriod="C", jetType="AK4PFPuppi", forMET=False, doJer=True, splitJER=True):
+def configcreate(isMC=True, year=2022, EE=False, runPeriod="C", jetType="AK4PFPuppi", forMET=False, doJer=True, splitJER=True, isT1SmearedMET=False):
     # splitJER=True : JER split in jer0...jer5 (no jerup/jerdown, CMSJMECalculators gives either the split or the unsplit JER)
     # splitJER=False: unsplit jerup/jerdown -> in step 1 a second calculator with splitJER=False writes only jerup/jerdown
-    print("isMC, year, EE, runPeriod, jetType, forMET, doJer, splitJER:", isMC, year, EE, runPeriod, jetType, forMET, doJer, splitJER)
+    # isT1SmearedMET (only forMET, MC with doJer): True  -> Type-1 MET from the smeared jets (nominal smeared, real JER up/down variations)
+    #                                              False -> nominal from unsmeared jets, all JER variations = smeared nominal (up == down)
+    print("isMC, year, EE, runPeriod, jetType, forMET, doJer, splitJER, isT1SmearedMET:", isMC, year, EE, runPeriod, jetType, forMET, doJer, splitJER, isT1SmearedMET)
     if forMET:
         configCls = calcConfigs.METVariations
     elif "AK4" in jetType:
@@ -185,6 +187,8 @@ def configcreate(isMC=True, year=2022, EE=False, runPeriod="C", jetType="AK4PFPu
         config.splitJER             = splitJER and (year_ != "2018") # jer0 ... jer5 (6 |eta|,pt regions)
         config.jsonFileSmearingTool = jerSmearingToolFile
         config.smearingToolName     = "JERSmear"
+        if forMET:
+            config.isT1SmearedMET   = isT1SmearedMET # jet smearing propagated to the Type-1 MET
 
     if "AK8" in jetType:
         config.jsonFileSubjet       = cvmfsPOGpath + tagver + "/jet_jerc.json.gz"
