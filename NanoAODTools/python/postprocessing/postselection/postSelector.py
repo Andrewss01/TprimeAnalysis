@@ -91,7 +91,7 @@ for label, removed in weightsets:
     if do_histos and not os.path.exists(repohisto[label]):
         os.makedirs(repohisto[label], exist_ok=True)
 
-
+#Andrea puzza
 # columns saved with --snapshot (the ones missing in a sample, e.g. the MC-only ones in Data, are skipped), plus the w_<weightset> columns
 branches = [
             "run", "luminosityBlock", "event",
