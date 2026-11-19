@@ -156,7 +156,7 @@ for sample in samples:
                 tree.GetEntry(0)
                 eventweight = abs(tree.Generator_weight)
                 n = round(abs(geneventSumw/eventweight))
-                out_strings.append(f)
+                out_strings.append(f)   # only after ntot is defined: a NaN genEventSumw makes round() raise -> file skipped, strings and ntot keep the same length
                 ntot.append(n)
             except:
                 print("Could not open file: ", f)

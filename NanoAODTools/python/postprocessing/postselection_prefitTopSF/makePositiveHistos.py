@@ -1,6 +1,6 @@
 import ROOT
 import argparse
-from PhysicsTools.NanoAODTools.postprocessing.postselection.loadHists import loadHists
+from PhysicsTools.NanoAODTools.postprocessing.postselection.utils.loadHists import loadHists
 
 parser  = argparse.ArgumentParser(description='Process ROOT files to fix zero bin contents in histograms.')
 parser.add_argument("-i", "--infile", type=str, help='Input ROOT file', required=True)

@@ -10,6 +10,8 @@ import shutil
 from datetime import datetime
 from PhysicsTools.NanoAODTools.postprocessing.samples.samples import *
 from PhysicsTools.NanoAODTools.postprocessing.variables import *
+from PhysicsTools.NanoAODTools.postprocessing.postselection.utils.bookhisto2D import bookhisto2D
+from PhysicsTools.NanoAODTools.postprocessing.postselection.utils.savehisto2d import savehisto2d
 sys.path.append('../')
 
 username = str(os.environ.get('USER'))
@@ -45,17 +47,18 @@ folder                  = hist_folder
 repohisto               = folder+"plots/"
 
 
-if not os.path.exists(folder):
-    os.makedirs(folder)
-if not os.path.exists(repohisto):
-    os.makedirs(repohisto)
+os.makedirs(folder, exist_ok=True)
+os.makedirs(repohisto, exist_ok=True)
 
+# check that the output folder is writable, with a test file of this job only: with a common test.txt the condor jobs
+# starting together removed each other's file and exited silently (Nov 2026, 9 of 48 jobs of the 2024 trigger SFs)
+testfile = repohisto+f"/test_{opt.datasets.replace(',', '_')}_{os.getpid()}.txt"
 try:
-    f = open(repohisto+"/test.txt", "w")
-    f.write("This folder contains the output histograms from the postSelector step.\n")
-    f.close()
-    os.remove(repohisto+"/test.txt")
-except:
+    with open(testfile, "w") as f:
+        f.write("This folder contains the output histograms from the postSelector step.\n")
+    os.remove(testfile)
+except Exception as e:
+    print(f"ERROR: output folder {repohisto} is not writable: {e}")
     sys.exit(1)
 
 
@@ -86,6 +89,17 @@ var.append(variable(name = "LeadingElectronPt_pt", title= "Leading Electron p_{T
 var2d = [] 
 var2d.append(variable2D(name = "PuppiMET_T1_pt_nominalVsMHT", xname = "PuppiMET_T1_pt_nominal", yname = "MHT", xtitle = " Puppi MET p_{T} [GeV]", ytitle = "MHT [GeV]", nxbins = 12, xarray = np.array([100, 125, 150, 175, 200, 225, 250, 275, 300, 350, 400, 500, 1000], dtype = 'd'),
                             nybins = 6, yarray = np.array([0, 100, 200, 300, 400, 500, 1000], dtype = 'd')))
+# trigger efficiency/SF vs MET in bins of the jet variables of the SR splitting (reviewer request, Nov 2026);
+# x: same MET binning as the trigger SF; last y bin also contains the overflow (merge_UnOvFlow2D in savehisto2d)
+MET_SF_edges = np.array([100, 125, 150, 175, 200, 225, 250, 275, 300, 350, 400, 500, 1000], dtype = 'd')
+var2d.append(variable2D(name = "PuppiMET_T1_pt_nominalVsnGoodJet", xname = "PuppiMET_T1_pt_nominal", yname = "nGoodJet", xtitle = "p_{T}^{miss}(Puppi) [GeV]", ytitle = "# AK4 jets",
+                            nxbins = 12, xarray = MET_SF_edges, nybins = 5, yarray = np.array([-0.5, 2.5, 3.5, 4.5, 5.5, 6.5], dtype = 'd')))        # <=2, 3, 4, 5, >=6
+var2d.append(variable2D(name = "PuppiMET_T1_pt_nominalVsnGoodFatJet", xname = "PuppiMET_T1_pt_nominal", yname = "nGoodFatJet", xtitle = "p_{T}^{miss}(Puppi) [GeV]", ytitle = "# AK8 jets",
+                            nxbins = 12, xarray = MET_SF_edges, nybins = 3, yarray = np.array([-0.5, 0.5, 1.5, 2.5], dtype = 'd')))                  # 0, 1, >=2
+var2d.append(variable2D(name = "PuppiMET_T1_pt_nominalVsnForwardJet", xname = "PuppiMET_T1_pt_nominal", yname = "nForwardJet", xtitle = "p_{T}^{miss}(Puppi) [GeV]", ytitle = "# forward jets",
+                            nxbins = 12, xarray = MET_SF_edges, nybins = 2, yarray = np.array([-0.5, 0.5, 1.5], dtype = 'd')))                       # 0, >=1
+var2d.append(variable2D(name = "PuppiMET_T1_pt_nominalVsLeadingJetPt_abseta", xname = "PuppiMET_T1_pt_nominal", yname = "LeadingJetPt_abseta", xtitle = "p_{T}^{miss}(Puppi) [GeV]", ytitle = "Leading jet |#eta|",
+                            nxbins = 12, xarray = MET_SF_edges, nybins = 5, yarray = np.array([0, 0.8, 1.5, 2.4, 3.0, 4.7], dtype = 'd')))
 
 print("Variables for histograms :")
 print([v._name for v in var])
@@ -159,38 +173,39 @@ def preselection(df, btagAlg, year, EE):
     elif year in [2024]:
         df = df
 
-    df = df.Define("GoodJet_idx",                       "GetGoodJet(Jet_pt, Jet_eta, Jet_jetId)") # richiesto jetId==6
-    df = df.Define("nGoodJet",                          "GoodJet_idx.size()") 
-    df = df.Define("GoodFatJet_idx",                    "GetGoodFatJet(FatJet_pt, FatJet_eta, FatJet_jetId)") # richiesto jetId==6
+    # leptons: ID, isolation, pt, eta only (no DeltaR from jets)
+    df = df.Define("nTightElectron",                    "nTightElectron(Electron_pt, Electron_eta, Electron_cutBased, Electron_mvaIso_WP80)")\
+           .Define("TightElectron_idx",                 "TightElectron_idx(Electron_pt, Electron_eta, Electron_cutBased, Electron_mvaIso_WP80)")\
+           .Define("nLooseElectron",                    "nLooseElectron(Electron_pt, Electron_eta, Electron_cutBased, Electron_mvaIso_WP80)")\
+           .Define("LooseElectron_idx",                 "LooseElectron_idx(Electron_pt, Electron_eta, Electron_cutBased, Electron_mvaIso_WP80)")\
+           .Define("nVetoElectron",                     "nVetoElectron(Electron_pt, Electron_cutBased, Electron_eta, Electron_mvaIso_WP80)")\
+           .Define("VetoElectron_idx",                  "VetoElectron_idx(Electron_pt, Electron_cutBased, Electron_eta, Electron_mvaIso_WP80)")
+    df = df.Define("nTightMuon",                        "nTightMuon(Muon_pt, Muon_eta, Muon_tightId, Muon_pfIsoId)")\
+           .Define("TightMuon_idx",                     "TightMuon_idx(Muon_pt, Muon_eta, Muon_tightId, Muon_pfIsoId)")\
+           .Define("nLooseMuon",                        "nLooseMuon(Muon_pt, Muon_eta, Muon_looseId, Muon_pfIsoId)")\
+           .Define("LooseMuon_idx",                     "LooseMuon_idx(Muon_pt, Muon_eta, Muon_looseId, Muon_pfIsoId)")\
+           .Define("nVetoMuon",                         "nVetoMuon(Muon_pt, Muon_eta, Muon_looseId, Muon_pfIsoId)")\
+           .Define("VetoMuon_idx",                      "VetoMuon_idx(Muon_pt, Muon_eta, Muon_looseId, Muon_pfIsoId)")
+
+    # jets: jetId==6, pt>30, |eta|<2.4, and DeltaR>=0.4 from every veto electron and veto muon
+    df = df.Define("GoodJet_idx",                       "CleanGoodJets_fromVetoLeptons(GetGoodJet(Jet_pt_nominal, Jet_eta, Jet_jetId), Jet_eta, Jet_phi, VetoElectron_idx, Electron_eta, Electron_phi, VetoMuon_idx, Muon_eta, Muon_phi, 0.4)")
+    df = df.Define("nGoodJet",                          "GoodJet_idx.size()")
+    df = df.Define("GoodFatJet_idx",                    "GetGoodFatJet(FatJet_pt_nominal, FatJet_eta, FatJet_jetId)") # richiesto jetId==6
     df = df.Define("nGoodFatJet",                       "GoodFatJet_idx.size()")
     df = df.Filter("nGoodJet>2 || nGoodFatJet>0 ",      "jet presel")
 
     df = df.Redefine("MinDelta_phi",                    "min_DeltaPhi(PuppiMET_T1_phi_nominal, Jet_phi, GoodJet_idx)")
-    df = df.Define("Electron_minDeltaR_fromGoodJets",   "MinDeltaR_Lepton_Jets(Electron_eta, Electron_phi, Jet_eta, Jet_phi, GoodJet_idx)")\
-           .Define("nTightElectron",                    "nTightElectron(Electron_pt, Electron_eta, Electron_cutBased, Electron_mvaIso_WP80, Electron_minDeltaR_fromGoodJets)")\
-           .Define("TightElectron_idx",                 "TightElectron_idx(Electron_pt, Electron_eta, Electron_cutBased, Electron_mvaIso_WP80, Electron_minDeltaR_fromGoodJets)")\
-           .Define("nLooseElectron",                    "nLooseElectron(Electron_pt, Electron_eta, Electron_cutBased, Electron_mvaIso_WP80, Electron_minDeltaR_fromGoodJets)")\
-           .Define("LooseElectron_idx",                 "LooseElectron_idx(Electron_pt, Electron_eta, Electron_cutBased, Electron_mvaIso_WP80, Electron_minDeltaR_fromGoodJets)")\
-           .Define("nVetoElectron",                     "nVetoElectron(Electron_pt, Electron_cutBased, Electron_eta, Electron_mvaIso_WP80, Electron_minDeltaR_fromGoodJets)")\
-           .Define("VetoElectron_idx",                  "VetoElectron_idx(Electron_pt, Electron_cutBased, Electron_eta, Electron_mvaIso_WP80, Electron_minDeltaR_fromGoodJets)")
-           
-    df = df.Define("Muon_minDeltaR_fromGoodJets",       "MinDeltaR_Lepton_Jets(Muon_eta, Muon_phi, Jet_eta, Jet_phi, GoodJet_idx)")\
-           .Define("nTightMuon",                        "nTightMuon(Muon_pt, Muon_eta, Muon_tightId, Muon_pfIsoId, Muon_minDeltaR_fromGoodJets)")\
-           .Define("TightMuon_idx",                     "TightMuon_idx(Muon_pt, Muon_eta, Muon_tightId, Muon_pfIsoId, Muon_minDeltaR_fromGoodJets)")\
-           .Define("nLooseMuon",                        "nLooseMuon(Muon_pt, Muon_eta, Muon_looseId, Muon_pfIsoId, Muon_minDeltaR_fromGoodJets)")\
-           .Define("LooseMuon_idx",                     "LooseMuon_idx(Muon_pt, Muon_eta, Muon_looseId, Muon_pfIsoId, Muon_minDeltaR_fromGoodJets)")\
-           .Define("nVetoMuon",                         "nVetoMuon(Muon_pt, Muon_eta, Muon_looseId, Muon_pfIsoId, Muon_minDeltaR_fromGoodJets)")\
-           .Define("VetoMuon_idx",                      "VetoMuon_idx(Muon_pt, Muon_eta, Muon_looseId, Muon_pfIsoId, Muon_minDeltaR_fromGoodJets)")
     df = df.Define("Lepton_flavour",                    "Lepton_flavour(nTightElectron, nTightMuon)").Define("Lep_pt", "Lepton_var(Lepton_flavour, Electron_pt, TightElectron_idx, Muon_pt, TightMuon_idx)").Define("Lep_phi", "Lepton_var(Lepton_flavour, Electron_phi, TightElectron_idx, Muon_phi, TightMuon_idx)")
     df = df.Define("MT",                                "sqrt(2 * Lep_pt * PuppiMET_T1_pt_nominal * (1 - cos(Lep_phi - PuppiMET_T1_phi_nominal)))")
-    df = df.Define("MHT", "MHT(GoodJet_idx, Jet_pt, Jet_phi, Jet_eta, Jet_mass)")
+    df = df.Define("MHT", "MHT(GoodJet_idx, Jet_pt_nominal, Jet_phi, Jet_eta, Jet_mass_nominal)")
     
     df = df.Define("LeadingJetPt_idx",                  "GetLeadingPtJet(Jet_pt_nominal)")\
            .Define("LeadingJetPt_pt",                   "GetLeadingJetVar(LeadingJetPt_idx, Jet_pt_nominal)")\
            .Define("LeadingJetPt_eta",                  "GetLeadingJetVar(LeadingJetPt_idx, Jet_eta)")\
            .Define("LeadingJetPt_phi",                  "GetLeadingJetVar(LeadingJetPt_idx, Jet_phi)")\
-           .Define("LeadingJetPt_mass",                 "GetLeadingJetVar(LeadingJetPt_idx, Jet_mass_nominal)")
-    df = df.Define("LeadingFatJetPt_idx",               "GetLeadingPtJet(FatJet_pt)")\
+           .Define("LeadingJetPt_mass",                 "GetLeadingJetVar(LeadingJetPt_idx, Jet_mass_nominal)")\
+           .Define("LeadingJetPt_abseta",               "abs(LeadingJetPt_eta)")
+    df = df.Define("LeadingFatJetPt_idx",               "GetLeadingPtJet(FatJet_pt_nominal)")\
            .Define("LeadingFatJetPt_pt",                "GetLeadingJetVar(LeadingFatJetPt_idx, FatJet_pt_nominal)")\
            .Define("LeadingFatJetPt_eta",               "GetLeadingJetVar(LeadingFatJetPt_idx, FatJet_eta)")\
            .Define("LeadingFatJetPt_phi",               "GetLeadingJetVar(LeadingFatJetPt_idx, FatJet_phi)")\
@@ -243,33 +258,6 @@ def bookhisto(df, regions_def, var):
     
     return h_
 
-def bookhisto2D(df, regions_def, var2d):
-    h_ = {}
-    for reg in regions_def.keys():
-        h_[reg] = {}
-        for v in var2d:
-            if regions_def[reg]=="":
-                if v._xarray is None:
-                    h_[reg][v._name] = df.Redefine(v._xname, "UnOvBin("+v._xname+","+str(v._nxbins)+","+str(v._xmin)+","+str(v._xmax)+")")\
-                                     .Redefine(v._yname, "UnOvBin("+v._yname+","+str(v._nybins)+","+str(v._ymin)+","+str(v._ymax)+")")\
-                                     .Histo2D((v._xname+"Vs"+v._yname+"_"+reg," ;"+v._xtitle+";"+v._ytitle, v._nxbins, v._xmin, v._xmax, v._nybins, v._ymin, v._ymax), v._xname, v._yname, "w_nominal")
-                else:
-                    h_[reg][v._name] = df.Redefine(v._xname, "UnOvBin("+v._xname+","+str(v._nxbins)+","+str(v._xarray[0])+","+str(v._xarray[-1])+")")\
-                                     .Redefine(v._yname, "UnOvBin("+v._yname+","+str(v._nybins)+","+str(v._ymin)+","+str(v._ymax)+")")\
-                                     .Histo2D((v._xname+"Vs"+v._yname+"_"+reg," ;"+v._xtitle+";"+v._ytitle, v._nxbins, v._xarray, v._nybins, v._ymin, v._ymax), v._xname, v._yname, "w_nominal")
-            else:
-                if v._xarray is None:
-                    h_[reg][v._name] = df.Filter(regions_def[reg])\
-                                     .Redefine(v._xname, "UnOvBin("+v._xname+","+str(v._nxbins)+","+str(v._xmin)+","+str(v._xmax)+")")\
-                                     .Redefine(v._yname, "UnOvBin("+v._yname+","+str(v._nybins)+","+str(v._ymin)+","+str(v._ymax)+")")\
-                                     .Histo2D((v._xname+"Vs"+v._yname+"_"+reg," ;"+v._xtitle+";"+v._ytitle, v._nxbins, v._xmin, v._xmax, v._nybins, v._ymin, v._ymax), v._xname, v._yname, "w_nominal")
-                else:
-                    h_[reg][v._name] = df.Filter(regions_def[reg])\
-                                     .Redefine(v._xname, "UnOvBin("+v._xname+","+str(v._nxbins)+","+str(v._xarray[0])+","+str(v._xarray[-1])+")")\
-                                     .Redefine(v._yname, "UnOvBin("+v._yname+","+str(v._nybins)+","+str(v._yarray[0])+","+str(v._yarray[-1])+")")\
-                                     .Histo2D((v._xname+"Vs"+v._yname+"_"+reg," ;"+v._xtitle+";"+v._ytitle, v._nxbins, v._xarray, v._nybins, v._yarray), v._xname, v._yname, "w_nominal")
-    return h_
-
 def savehisto(d, h, regions_def, var, isMC):
     histo = {reg: {v._name: ROOT.TH1D(v._name+"_"+reg," ;"+v._title+"", v._nbins, v._xmin, v._xmax) if v._xarray is None else ROOT.TH1D(v._name+"_"+reg," ;"+v._title+"", v._nbins, v._xarray) for v in var} for reg in regions_def.keys()}
     isMC=True
@@ -301,26 +289,6 @@ def savehisto(d, h, regions_def, var, isMC):
                         histo[reg][v._name].Scale(s.sigma*10**3/ntot_events[d.label][s.label])
                     outfile.cd()
                     histo[reg][v._name].Write()
-        outfile.Close()
-
-# i plot2d per il momento non ci servono, si deve trovare un modo più intelligente di farli
-def savehisto2d(d, h, regions_def, var2d, isMC):
-    histo = {reg: {v._name: ROOT.TH2D(v._name+"_"+reg," ;"+v._xtitle+";"+v._ytitle, v._nxbins, v._xmin, v._xmax, v._nybins, v._ymin, v._ymax)  if v._xarray is None else ROOT.TH2D(v._name+"_"+reg," ;"+v._xtitle+";"+v._ytitle, v._nxbins, v._xarray, v._nybins, v._yarray)  for v in var2d} for reg in regions_def.keys()}
-        
-    if hasattr(d, "components"):
-        s_list = d.components
-    else:
-        s_list = [d]
-    
-    for s in s_list:
-        outfile = ROOT.TFile.Open(repohisto+s.label+'_2D.root', "RECREATE")
-        for reg in regions_def.keys():
-            for v in histo[reg].keys():
-                histo[reg][v] = h[d.label][s.label][reg][v].GetValue()
-                if isMC:
-                    histo[reg][v].Scale(s.sigma*10**3/ntot_events[d.label][s.label])
-                outfile.cd()
-                histo[reg][v].Write()
         outfile.Close()
 
 
@@ -408,7 +376,7 @@ for d in datasets:
             if len(var) != 0 :
                 h[d.label][s.label] = bookhisto(df_presel, regions_def, var)
             if len(var2d) != 0 :
-                h_2D[d.label][s.label] = bookhisto2D(df_presel, regions_def, var2d)
+                h_2D[d.label][s.label] = bookhisto2D(df_presel, regions_def, var2d, "w_nominal")
 
 
 if do_histos:
@@ -417,7 +385,7 @@ if do_histos:
         if len(var):
             savehisto(d, h, regions_def, var, sampleflag)
         if len(var2d) != 0 :
-            savehisto2d(d, h_2D, regions_def, var2d, sampleflag)
+            savehisto2d(d, h_2D, regions_def, var2d, repohisto, ntot_events)
         print(d.label + " histos saved")
 if do_snapshot:
     snapshot_df.GetValue()

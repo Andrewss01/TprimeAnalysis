@@ -1,6 +1,14 @@
 import json
 import correctionlib.schemav2 as cs
 
+# Systematic variation of the trigger SF: SF_up/SF_down = SF +/- Delta, with Delta = |1 - SF|
+# (the absolute value matters only for the few bins with SF > 1, e.g. 400-500 GeV in 2023, 2023postBPix and 2024)
+def SF_up(SF_values):
+    return [sf + abs(1 - sf) for sf in SF_values]
+
+def SF_down(SF_values):
+    return [sf - abs(1 - sf) for sf in SF_values]
+
 def CreateCorrectionLibfile(triggerSF):
 
     corr = cs.Correction(
@@ -9,7 +17,7 @@ def CreateCorrectionLibfile(triggerSF):
         inputs=[
             cs.Variable(name="PuppiMET_pt", type="real", description="Puppi MET pt"),
             cs.Variable(name="era", type="string", description="data taking era: 2022, 2022EE, 2023, 2023postBPix, 2024"),
-            cs.Variable(name="type", type="string", description="insert: sf, stat_err")
+            cs.Variable(name="type", type="string", description="insert: sf, stat_err, up (sf + |1-sf|), down (sf - |1-sf|)")
         ],
         output=cs.Variable(
             name="triggerSF", type="real", description="trigger scale factor"
@@ -41,6 +49,26 @@ def CreateCorrectionLibfile(triggerSF):
                                     input="PuppiMET_pt",
                                     edges=[100, 125, 150, 175, 200, 225, 250, 275, 300, 350, 400, 500, 1000],
                                     content=triggerSF[key]["SF_errors"],
+                                    flow="clamp"
+                                )
+                            },
+                            {
+                                "key": "up",
+                                "value": cs.Binning(
+                                    nodetype="binning",
+                                    input="PuppiMET_pt",
+                                    edges=[100, 125, 150, 175, 200, 225, 250, 275, 300, 350, 400, 500, 1000],
+                                    content=SF_up(triggerSF[key]["SF_values"]),
+                                    flow="clamp"
+                                )
+                            },
+                            {
+                                "key": "down",
+                                "value": cs.Binning(
+                                    nodetype="binning",
+                                    input="PuppiMET_pt",
+                                    edges=[100, 125, 150, 175, 200, 225, 250, 275, 300, 350, 400, 500, 1000],
+                                    content=SF_down(triggerSF[key]["SF_values"]),
                                     flow="clamp"
                                 )
                             }
@@ -75,9 +103,9 @@ SFtrigger = {
         "SF_values": [0.85, 0.80, 0.793, 0.827, 0.876, 0.918, 0.959, 0.975, 0.993, 0.995, 1.003, 0.999],
         "SF_errors": [0.02, 0.01, 0.01, 0.008, 0.007, 0.006, 0.005, 0.005, 0.003, 0.003, 0.003, 0.004]
     },
-    "2024": {
-        "SF_values": [0.84636, 0.80772, 0.80726, 0.82398, 0.88424, 0.93209, 0.96520, 0.98432, 0.99502, 0.99617, 1.00006, 0.99835],
-        "SF_errors": [0.00593, 0.00434, 0.00327, 0.00261, 0.00227, 0.00194, 0.00168, 0.00154, 0.00102, 0.00107, 0.00094, 0.00085]
+    "2024": {    # Nov 7 2026: re-derived after the lepton-jet cleaning (937a7b7)
+        "SF_values": [0.85930, 0.81005, 0.80308, 0.82150, 0.88394, 0.93268, 0.96589, 0.98551, 0.99536, 0.99709, 1.00075, 0.99885],
+        "SF_errors": [0.00606, 0.00438, 0.00326, 0.00261, 0.00227, 0.00194, 0.00168, 0.00155, 0.00103, 0.00109, 0.00096, 0.00090]
     }
 }
 

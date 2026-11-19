@@ -104,12 +104,14 @@ class PostProcessor:
                 ROOT.gInterpreter.ProcessLine("#include <Compression.h>")
                 (algo, level) = self.compression.split(":")
                 compressionLevel = int(level)
+                # RCompressionSetting::EAlgorithm instead of the deprecated ROOT::ECompressionAlgorithm (ROOT.ROOT.kLZMA, ...): same values, no -Wdeprecated-declarations warning
+                compressionAlgos = ROOT.ROOT.RCompressionSetting.EAlgorithm
                 if algo == "LZMA":
-                    compressionAlgo = ROOT.ROOT.kLZMA
+                    compressionAlgo = compressionAlgos.kLZMA
                 elif algo == "ZLIB":
-                    compressionAlgo = ROOT.ROOT.kZLIB
+                    compressionAlgo = compressionAlgos.kZLIB
                 elif algo == "LZ4":
-                    compressionAlgo = ROOT.ROOT.kLZ4
+                    compressionAlgo = compressionAlgos.kLZ4
                 else:
                     raise RuntimeError("Unsupported compression %s" % algo)
             else:

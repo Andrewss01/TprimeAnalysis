@@ -49,6 +49,45 @@ bash standalone/env_standalone.sh build
 source standalone/env_standalone.sh
 ```
 
+### Combine environment (top tagging SF fits and statistical analysis)
+The fits of the top tagging scale factors and the statistical analysis use combine v11.1.0 and CombineHarvester v4.0.0 in `CMSSW_16_0_0`:
+```bash
+# once: installation (lxplus el9)
+cd /afs/cern.ch/user/{u}/{username}
+export SCRAM_ARCH=el9_amd64_gcc13
+cmsrel CMSSW_16_0_0
+cd CMSSW_16_0_0/src
+cmsenv
+
+git clone https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit.git HiggsAnalysis/CombinedLimit
+cd HiggsAnalysis/CombinedLimit && git checkout v11.1.0 && cd ../..
+
+git clone https://github.com/cms-analysis/CombineHarvester.git CombineHarvester
+cd CombineHarvester && git checkout v4.0.0 && cd ..
+
+# physics model of the top tagging SF fits (text2workspace.py -P HiggsAnalysis.CombinedLimit.TagAndProbeExtended:tagAndProbe)
+cp /afs/cern.ch/user/{u}/{username}/TprimeAnalysis/NanoAODTools/python/postprocessing/postselection_prefitTopSF/TagAndProbeExtended.py HiggsAnalysis/CombinedLimit/python/
+
+scramv1 b clean; scramv1 b -j 8
+```
+`TagAndProbeExtended.py` is the model of [cms-jet/ParticleNetSF](https://github.com/cms-jet/ParticleNetSF/blob/ParticleNet_TopW_SFs_NanoV9/TagAndProbeExtended.py) with one change: the SFs are in the range [0, 10] instead of [0, 2] (`SF_%s[1,0.,10]`), so that SFs and their uncertainties are not cut at 2. Use the copy in this repository, not the original one.
+
+Every time, in a new shell:
+```bash
+cd /afs/cern.ch/user/{u}/{username}/CMSSW_16_0_0/src
+cmsenv
+export PYTHONNOUSERSITE=1    # otherwise the packages in ~/.local (e.g. numpy 2) are picked up and text2workspace.py fails with "_ARRAY_API not found"
+```
+
+Check:
+```bash
+combine --help | head -3
+python3 -c "import HiggsAnalysis.CombinedLimit.TagAndProbeExtended; print('OK')"
+which combineTool.py plotImpacts.py
+```
+
+Keep this environment and the NanoAOD Tools standalone one in separate shells: `collectHistograms.py`, `symmetrizeHistos.py` and `makePositiveHistos.py` run in the standalone environment (`PhysicsTools` imports), while the scripts written by `collectHistograms.py` (`combine_script.sh`, `fit_procedure.sh`), `extract_ScaleFactors.py` and `postselection/TopSF-corrections/produceTrotaCorrLib.py` (`correctionlib`) run in `CMSSW_16_0_0`.
+
 
 ## Usage
 ### Step 0: env setup
@@ -79,6 +118,20 @@ In order to produce the histograms, you can run the `postSelector_submitter.py` 
 cd TprimeAnalysis/NanoAODTools/python/postprocessing/postselection/
 python3 postSelector_submitter.py -d *dataset_name* --syst
 ```
+
+#### Split submission and weight sets
+`postSelector_submitter_large.py` splits every sample in jobs of `--partsize` files. With `--weightset` (repeatable) one job produces the histograms for several sets of weights: `allWeights`, or the weights to remove separated by commas (`noSFbtag`, `noPuWeight`, `noTopPtWeight`, `noTrotaSF`). The `--noXXX` options remove the weight from every weight set. Without `--weightset` there is one weight set, `allWeights`.
+```bash
+cd TprimeAnalysis/NanoAODTools/python/postprocessing/postselection/
+python3 postSelector_submitter_large.py -d TT_2024 --syst --noTrotaSF --weightset allWeights --weightset noSFbtag --partsize 10 --suffix *suffix* --outpath *outpath*
+```
+Every weight set has its own folder, named after the removed weights in a fixed order joined by `_` (`allWeights` if none), also when there is only one weight set; e.g. the command above writes in `*outpath*/noTrotaSF/` and `*outpath*/noSFbtag_noTrotaSF/`:
+- `<weightset>/parts/<sample>_partN.root`: output of the split jobs;
+- `<weightset>/plots/<sample>.root`: merged histograms (and samples not split), the folder to put in `plotting/folder_dict`.
+
+The same options are then used with the other modes (`-m`): `c` checks the jobs, `r` resubmits the failed ones, `h` merges the parts of every weight set into `<weightset>/plots/` (or `--mergepath`), `d` removes the parts after checking them against the merged file.
+
+`postSelector.py --snapshot` (not with `--syst`) saves the preselected events, with the b-tag columns and the weights listed in `branches`, in `<hist_folder>/snapshots/snap_<sample>.root` instead of producing the histograms.
 
 #### config file
 The configuration file for the histogram production and plotting can be found at `TprimeAnalysis/NanoAODTools/python/postprocessing/config/config.yaml`.

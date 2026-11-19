@@ -66,6 +66,9 @@ if submit:
 def write_crab_script(sample, file, modules, run_folder, calculate_systematics, year, debug):
     f = open(run_folder+"/crab_script.py", "w")
     f.write("#!/usr/bin/env python3\n")
+    f.write("import time\n")
+    f.write("t_start = time.time() # job timing: total (imports + setup + PostProcessor) and PostProcessor only\n")
+    f.write("print('START :', time.strftime('%Y-%m-%d %H:%M:%S'))\n")
     f.write("import os\n")
     f.write("from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import *\n")
     f.write("from PhysicsTools.NanoAODTools.postprocessing.modules.common.JetVetoMaps_run3 import *\n")
@@ -125,7 +128,16 @@ def write_crab_script(sample, file, modules, run_folder, calculate_systematics, 
     else:
         f.write(f"p=PostProcessor('.', ['root://cms-xrd-global.cern.ch/{file}'], '', modules=[{modules}], provenance=True, haddFileName='tree.root', fwkJobReport=False, histFileName='hist.root', histDirName='plots', outputbranchsel='/afs/cern.ch/{workdir}/{inituser}/{username}/{name_main_folder}/NanoAODTools/scripts/keep_and_drop.txt'{extra_str})\n")#
 
+    f.write("t_run = time.time()\n")
     f.write("p.run()\n")
+    f.write("t_end = time.time()\n")
+    f.write("print('END   :', time.strftime('%Y-%m-%d %H:%M:%S'))\n")
+    f.write("def hms(seconds): # 360.6 -> '0h 06m 01s'\n")
+    f.write("    seconds = int(round(seconds))\n")
+    f.write("    return '%dh %02dm %02ds' % (seconds // 3600, (seconds % 3600) // 60, seconds % 60)\n")
+    f.write("print('TIME setup (imports, calculators, models) : %8.1f s = %s' % (t_run - t_start, hms(t_run - t_start)))\n")
+    f.write("print('TIME PostProcessor run                    : %8.1f s = %s' % (t_end - t_run,   hms(t_end - t_run)))\n")
+    f.write("print('TIME total crab_script                    : %8.1f s = %s' % (t_end - t_start, hms(t_end - t_start)))\n")
     f.write("print('DONE')\n")
     f.close()
 
@@ -253,14 +265,27 @@ if submit:
                 if sample.year not in [2024]:
                     modules_list.append(f'BTagSF(year={sample.year},EE={sample.EE})')
                 if calculate_systematics:
-                    modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK4PFPuppi",forMET=False,doJer=True),jetType="AK4PFPuppi",isMC={isMC},forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv={nanoaod_version})')
-                    modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK8PFPuppi",forMET=False,doJer=True),jetType="AK8PFPuppi",isMC={isMC},forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv={nanoaod_version})')
-                    modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK4PFPuppi",forMET=True,doJer=True),jetType="AK4PFPuppi",isMC={isMC},forMET=True,PuppiMET=True,addHEM2018Issue=False,NanoAODv={nanoaod_version})')
+                    # for each object (MET: isT1SmearedMET=True, jet smearing propagated to the Type-1 MET): calculator with split JER (nominal, JES, jer0...jer5) + calculator with splitJER=False writing only the unsplit jerup/jerdown (same seed -> same nominal)
+                    modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK4PFPuppi",forMET=False,doJer=True,splitJER=True),jetType="AK4PFPuppi",isMC={isMC},forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv={nanoaod_version})')
+                    modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK4PFPuppi",forMET=False,doJer=True,splitJER=False),jetType="AK4PFPuppi",isMC={isMC},forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv={nanoaod_version},onlyVariations=["jerup","jerdown"])')
+                    modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK8PFPuppi",forMET=False,doJer=True,splitJER=True),jetType="AK8PFPuppi",isMC={isMC},forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv={nanoaod_version})')
+                    modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK8PFPuppi",forMET=False,doJer=True,splitJER=False),jetType="AK8PFPuppi",isMC={isMC},forMET=False,PuppiMET=False,addHEM2018Issue=False,NanoAODv={nanoaod_version},onlyVariations=["jerup","jerdown"])')
+                    modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK4PFPuppi",forMET=True,doJer=True,splitJER=True,isT1SmearedMET=True),jetType="AK4PFPuppi",isMC={isMC},forMET=True,PuppiMET=True,addHEM2018Issue=False,NanoAODv={nanoaod_version})')
+                    modules_list.append(f'CMSJMECalculators(configcreate(isMC={isMC},year={sample.year},EE={sample.EE},runPeriod=".",jetType="AK4PFPuppi",forMET=True,doJer=True,splitJER=False,isT1SmearedMET=True),jetType="AK4PFPuppi",isMC={isMC},forMET=True,PuppiMET=True,addHEM2018Issue=False,NanoAODv={nanoaod_version},onlyVariations=["jerup","jerdown"])')
+                # JES/JER scenarios of the top candidates (only with --syst: *_syst modules + CMSJMECalculators branches);
+                # top_scenarios is defined in CMSJMECalculatorsHelper, imported by crab_script.py
+                if calculate_systematics:
+                    eraTag = str(sample.year)
+                    if sample.year == 2022 and sample.EE: eraTag += "EE"
+                    if sample.year == 2023 and sample.EE: eraTag += "BPix"
+                    topScenarios = f',scenarios=top_scenarios("{eraTag}")'
+                else:
+                    topScenarios = ''
                 modules_list.append(f'GenPart_MomFirstCp(flavour="-5,-4,-3,-2,-1,1,2,3,4,5,6,-6,24,-24")')
                 modules_list.append(f'nanoprepro()')
-                modules_list.append(f'nanoTopcand(isMC={isMC})')
+                modules_list.append(f'nanoTopcand(isMC={isMC}{topScenarios})')
                 modules_list.append(f'globalvar()')
-                modules_list.append(f'nanoTopevaluate_MultiScore(year={sample.year},modelMix_path="{modelMix_path}",modelRes_path="{modelRes_path}")')
+                modules_list.append(f'nanoTopevaluate_MultiScore(year={sample.year},modelMix_path="{modelMix_path}",modelRes_path="{modelRes_path}"{topScenarios})')
 
         else:
             if sample.year==2018:

@@ -179,7 +179,8 @@ def getFatJetArgsPostProcessor(fatjets, subjets, genjets, subgenjets, rho, run, 
     return args
 
 class CMSJMECalculators(Module):
-    def __init__(self, jetvarcalc, jetType="AK4Puppi", isMC=True, forMET=False, PuppiMET=False, addHEM2018Issue=False, NanoAODv=12):
+    def __init__(self, jetvarcalc, jetType="AK4Puppi", isMC=True, forMET=False, PuppiMET=False, addHEM2018Issue=False, NanoAODv=12, onlyVariations=None):
+        # onlyVariations: names of the variations to write (e.g. ["jerup", "jerdown"] for the second calculator with splitJER=False); None -> all of config.available()
         self.config = jetvarcalc
         self.jetType = jetType
         self.isMC = isMC
@@ -187,6 +188,7 @@ class CMSJMECalculators(Module):
         self.PuppiMET = PuppiMET
         self.addHEM2018Issue = addHEM2018Issue
         self.NanoAODv = NanoAODv
+        self.onlyVariations = onlyVariations
         pass
 
     def beginJob(self):
@@ -197,8 +199,11 @@ class CMSJMECalculators(Module):
 
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
+        # (index in the calculator result, variation name) of the variations to write
+        self.variationsToWrite = [(i, str(corr)) for i, corr in enumerate(self.config.available()) if self.onlyVariations is None or str(corr) in self.onlyVariations]
+        print("CMSJMECalculators", self.jetType, "forMET" if self.forMET else "", "variations written:", [corr for i, corr in self.variationsToWrite])
         if "AK4" in self.jetType:
-            for corr in self.config.available():
+            for i, corr in self.variationsToWrite:
                 if self.forMET:
                     metbranchname = "MET"
                     if self.PuppiMET: metbranchname = "PuppiMET"
@@ -208,7 +213,7 @@ class CMSJMECalculators(Module):
                     self.out.branch("Jet_pt_%s" %(corr), "F", lenVar="nJet")
                     self.out.branch("Jet_mass_%s" %(corr), "F", lenVar="nJet")
         elif "AK8" in self.jetType:
-            for corr in self.config.available():
+            for i, corr in self.variationsToWrite:
                 self.out.branch("FatJet_pt_%s" %(corr), "F", lenVar="nFatJet")
                 self.out.branch("FatJet_mass_%s" %(corr), "F", lenVar="nFatJet")
                 self.out.branch("FatJet_msoftdrop_%s" %(corr), "F", lenVar="nFatJet")
@@ -266,7 +271,7 @@ class CMSJMECalculators(Module):
         # for i in range(self.config.available().size()):
         #     print(res.pt(i))
         if "AK4" in self.jetType:
-            for i, corr in enumerate(self.config.available()):
+            for i, corr in self.variationsToWrite:
                 if self.forMET:
                     metbranchname = "MET"
                     if self.PuppiMET: metbranchname = "PuppiMET"
@@ -276,7 +281,7 @@ class CMSJMECalculators(Module):
                     self.out.fillBranch("Jet_pt_%s" %(corr), res.pt(i))
                     self.out.fillBranch("Jet_mass_%s" %(corr), res.mass(i))
         elif "AK8" in self.jetType:
-            for i, corr in enumerate(self.config.available()):
+            for i, corr in self.variationsToWrite:
                 self.out.fillBranch("FatJet_pt_%s" %(corr), res.pt(i))
                 self.out.fillBranch("FatJet_mass_%s" %(corr), res.mass(i))
                 self.out.fillBranch("FatJet_msoftdrop_%s" %(corr), res.msoftdrop(i))

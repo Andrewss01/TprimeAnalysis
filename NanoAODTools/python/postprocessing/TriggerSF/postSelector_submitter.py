@@ -24,6 +24,7 @@ usage               = "python3 postSelector_submitter.py -d dataset_name --dryru
 parser              = optparse.OptionParser(usage)
 parser.add_option("-d", "--dat",                    dest="dat",                 type=str,                                                                       help="Please enter a dataset name")
 parser.add_option(      '--dryrun',                 dest='dryrun',              action='store_true',    default = False,                                        help='dryrun')
+parser.add_option(      '--outfolder',              dest='outfolder',           type=str,               default = "",                                           help='output folder (ending with /), default: config outputfolder/triggerSF_results/<period>')
 
 (opt, args)         = parser.parse_args()
 dataset_to_run      = opt.dat
@@ -43,7 +44,13 @@ elif "2024" in period:
     year            = "2024"
 
 dict_samples_file   = config["dict_samples"][year]
-outFolder_path      = config["outputfolder"]["triggerSF_results"][period]
+if opt.outfolder != "":
+    outFolder_path  = opt.outfolder
+    if not outFolder_path.endswith("/"):
+        outFolder_path += "/"
+else:
+    outFolder_path  = config["outputfolder"]["triggerSF_results"][period]
+print(f"Output folder: {outFolder_path}")
 syst_suffix         = "_xTriggerSF"
 
 username        = str(os.environ.get('USER'))
